@@ -20,7 +20,10 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("retro-api stopped", "reason", "startup or server failure")
+		// The cause, not just the phase — a swallowed error here made a real
+		// failure (unreachable bucket, missing database) indistinguishable
+		// from any other startup failure.
+		slog.Error("retro-api stopped", "reason", "startup or server failure", "error", err)
 		os.Exit(1)
 	}
 }

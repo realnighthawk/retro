@@ -1,0 +1,10 @@
+# Merge into the existing tenant's values. MinIO is a dependency enabled with Retro.
+# Existing Postgres credentials drive DB/MinIO secrets; no new password or endpoint values.
+retroEngine:
+  enabled: true
+  image:
+    repository: YOUR_REGISTRY/retro-engine
+    tag: YOUR_TAG
+# Defaults: standalone MinIO, 10G (decimal 10 GB) PVC, 50m CPU/128Mi memory requests,
+# 512Mi memory limit. Bucket/service settings live only under minio in the chart.
+# Shared browser origins, registry pull secrets and router namespace reuse financeEngine settings.

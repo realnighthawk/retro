@@ -1,0 +1,9 @@
+# Everything Xcode or XcodeGen generates. project.yml is the project.
+*.xcodeproj/
+*.xcworkspace/
+Retro/Resources/Info.plist
+build/
+build-*/
+DerivedData/
+.DS_Store
+xcuserdata/

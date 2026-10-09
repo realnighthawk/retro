@@ -1,0 +1,76 @@
+name: Retro
+options:
+  bundleIdPrefix: org.nighthawklabs
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: D9B866T935
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  Clerk:
+    url: https://github.com/clerk/clerk-ios
+    from: 1.5.8
+targets:
+  Retro:
+    type: application
+    platform: iOS
+    sources: [Retro]
+    dependencies:
+      - package: Clerk
+        product: ClerkKit
+    info:
+      path: Retro/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Retro
+        NSCameraUsageDescription: Photograph garments you choose to add to your wardrobe.
+        # Same Clerk instance and router as AutoTelemetry and Treasure. The publishable key is public by design.
+        RouterBaseURL: https://harness-router.nighthawklabs.org
+        ClerkPublishableKey: pk_live_Y2xlcmsubmlnaHRoYXdrbGFicy5vcmck
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [org.nighthawklabs.retro]
+        # Lets Debug builds reach an engine on this Mac (-dev-engine); plain HTTP stays blocked for everything else.
+        NSAppTransportSecurity: { NSAllowsLocalNetworking: true }
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.nighthawklabs.retro
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: YES
+  RetroTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - RetroTests
+      - path: ../fixtures/wardrobe
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: Retro
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: org.nighthawklabs.retro.tests
+  RetroUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [RetroUITests]
+    dependencies:
+      - target: Retro
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: org.nighthawklabs.retro.uitests
+schemes:
+  Retro:
+    build:
+      targets: { Retro: all }
+    test:
+      targets: [RetroTests, RetroUITests]

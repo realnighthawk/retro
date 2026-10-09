@@ -1,0 +1,16 @@
+{
+  "media": {
+    "id": "33333333-3333-4333-8333-333333333333",
+    "version": 9007199254740993,
+    "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "size_bytes": 12345,
+    "mime_type": "image/jpeg",
+    "state": "ready",
+    "width": 1200,
+    "height": 1600,
+    "error": null,
+    "upload_path": "/retro/api/v1/media/33333333-3333-4333-8333-333333333333/content",
+    "display_path": "/retro/api/v1/media/33333333-3333-4333-8333-333333333333/content?variant=display",
+    "thumbnail_path": "/retro/api/v1/media/33333333-3333-4333-8333-333333333333/content?variant=thumbnail"
+  }
+}

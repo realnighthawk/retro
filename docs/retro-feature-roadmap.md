@@ -1,9 +1,33 @@
 # Retro feature roadmap
 
 Proposed on 2026-10-08. Retro is the active product focus; Sensei implementation follows separately.
-This defines first-release and follow-up scope; implementation progress is recorded below. No deployment is performed.
+This defines first-release and follow-up scope; implementation progress and deployment evidence are recorded below.
 Use this as the product scope, the [client completion plan](client-completion-plan.md) as the implementation sequence,
 and the [on-device intelligence plan](on-device-intelligence-plan.md) as the technical/privacy boundary.
+
+The [next-feature checklist and agent responsibilities](retro-feature-checklist.md) extends this roadmap with
+required daily outfit suggestions, live virtual try-on and laundry load planning. The app will have a shared agent
+endpoint with access to user data and supporting connections. For these next features, agent-assisted remote
+processing is in scope; earlier A/B local-only choices describe the delivered source, not a blanket ban on this work.
+Existing release progress below remains unchanged; the new checklist records outstanding requirements and optional choices.
+
+The owner's next-feature policy is Apple-first: use on-device Foundation Models for suitable interpretation and
+explanation, native Vision/speech/tracking for local processing, and the existing agent for connected context,
+scheduled execution and heavier/specialist work. Apple Private Cloud Compute is excluded. The checklist maps this
+allocation across N01–N12; platform capability and live rendering quality remain evaluation tasks.
+The [P1–P6 implementation phases](retro-implementation-phases.md) now track this work. P1 shared records, native
+editing/recovery, Apple context and the bounded iOS Apple/MCP loop are in source. P2.1 adds preference/explicit-rating
+ranking, on-open Today choices and role-preserving swaps on iOS. P2.2 adds stable daily plan references and saved
+garment pairings with native editing/planning/recovery. P2.3 adds reviewed Apple candidate comparison/explanation and
+contextual swaps over fresh engine choices. P2.4 adds bounded source-linked weather/calendar/travel context and
+reviewed request refinements, with native/manual fallback. P2.5 adds daily settings, a stable Temporal agent wake,
+cached snapshots and one authorized connected-service delivery attempt. Broader weather-selection rules and
+provider-specific delivery guarantees/iPhone push remain pending. P3.1 adds compatible manual laundry plans,
+explicit wash/dry confirmations and retained care/history. P3.2 adds reviewed on-device laundry requests and care-label
+OCR/text drafts. P3.3 adds derived wears since completed cleaning and opted-in in-app review reminders, with unknown
+baselines and same-day uncertainty retained. P3.4 adds reviewed Apple/agent timing and compatible batch proposals
+using bounded upcoming saved outfits and optional need-by-day connected context. The original M1–M6
+implementation/deployment evidence below is unchanged.
 
 ## Current implementation
 
@@ -85,6 +109,46 @@ and orphan safety. They are authored and **not run**. Remaining M4 work is actua
 high-contrast and device validation. Raw OCR/model inputs remain transient by design;
 accepted garment fields are preserved in the form draft. No builds/tests/deployment were run for this iteration.
 
+M5 (B01–B04/B07) is implemented in source. iOS interprets bounded typed outfit/search requests with the available
+on-device Apple text model, previews editable supported fields and requires real inventory choices for garment phrases.
+Ignored/unsupported conditions stay visible and require acknowledgement before applying. No new metadata search or
+weather contract is introduced. Explicit optional local speech is available for garment descriptions and outfit/search
+requests, with reviewed transcripts, capture-time permissions, 30-second recording limits and no network fallback.
+Local assets/language must already be available; typing works otherwise. Both clients compare supplied engine candidates
+using actual pieces/reasons and refresh the choice before composing. Both reuse past outfits as new dated manual plans,
+with explicit replacement/removal of blocked pieces, fresh garment checks and the existing new-UUID/key save path.
+Original wears, notes and snapshots remain in their original records. Android keeps manual core parity; inference is
+still a later platform decision. M5 tests are authored, unrun; model/speech/device/accessibility validation remains pending.
+On 2026-10-08, the signed M5 iOS Debug build succeeded and was installed/launched on the connected iPhone 17 Pro;
+its running process was confirmed. Unit/UI suites, backend flows, intelligence behavior and Android verification remain
+unrun. M6 supersedes that iPhone installation as recorded below.
+
+M6 (B05/B06/B08/B09) is now implemented in source. Both clients offer **Add from photos**: select up to ten photos
+at a time, keep up to twenty private per-item imports, review a garment or explicitly choose an existing one, accept
+its photo after the garment save and finish after attachment acknowledgement. Closing/relaunching resumes from
+Wardrobe or Pending saves. Sources are normalized, hashed and bounded (12 MiB per photo; 256 MiB local import folder),
+account/endpoint scoped and excluded from backup. Immutable garment create dependencies and photo identities survive
+retries; interrupted photo handoff resumes the existing draft/batch. Missing or altered source bytes block work;
+unreadable manifests stay intact. Later queued-create edits require selected-field recovery before finishing.
+Explicit removal discards only the local import; accepted saves/photo work continue. Old unreferenced import sources
+are pruned after one day only with a readable manifest. There is no bulk engine operation or automatic subject split.
+
+iOS offers explicit Vision revision-2 feature-print hints against cached primary thumbnails from up to forty loaded
+garments / 16 MiB, returning the three closest available photos. It reports partial coverage, does not download photos
+for comparison, store an index, assign an uncalibrated confidence or auto-merge. A fresh active garment/version/photo
+check and explicit confirmation precede choosing an existing item. Android retains manual existing-item selection.
+Both clients add a selected-period **Wardrobe review** in History: validated server counts and category totals, separate
+cache freshness for counts/records, paginated confirmed outfits and links to their saved facts. There are no causal or
+personality claims, inferred unused-item names or counts calculated from one local page.
+
+Add/Search/Today iOS App Intents require device unlock and hand off to the ordinary authenticated/onboarded shell.
+They open reviewed UI and save nothing. Strict bounded entry parsing and account changes fence pending commands.
+Android supplies equivalent authenticated launcher shortcuts. Existing iOS 17 support remains. M6 tests are authored;
+on 2026-10-08, the signed M6 iOS Debug build succeeded and was installed/launched on the connected iPhone 17 Pro.
+Its running process was confirmed. Suites, Android builds/deployment, Siri/launcher behavior, feature-print quality,
+full feature/integration flows and device/accessibility validation remain unrun. No backend/router/chart change or
+infrastructure deployment is part of M6.
+
 ## Product shape
 
 Retro helps answer three questions: what do I own, what should I wear, and what did I actually wear?
@@ -114,7 +178,10 @@ icon and Sage & Clay theme. Preserve the productivity source for Sensei, then re
 | A11 | Factual insights | Days worn, outfit events, last worn, date-range usage, unworn pieces and category totals | Garment wear statistics and `wardrobe_analyze` |
 | A12 | Durable native behavior | Cached reads, persistent drafts/writes/photos, retries, conflict review, pending status, accessible states | Existing idempotency/version contract; native queue/cache work remains |
 
-These features cover all 20 current operations. Full first-release behavior is planned on iOS and Android;
+These features cover the original 20 operations. P1 adds five preference/feedback/context operations, care metadata
+and native editors in the phase plan. P2.1 preference-aware ranking is implemented in source; the remaining daily
+decision features and laundry load planning follow in P2/P3. New client work is iOS only; existing Android delivery
+is retained.
 Apple-specific capture assistance is optional on supported iPhones. No extra business engine is needed for Release A.
 
 ### Capture flow
@@ -209,7 +276,7 @@ is not evidence that feedback is accurate or that a recommendation will be comfo
 | Storage usage and reclaim | Unreferenced upload sources are retained today; no quota/cleanup API exists | Actual usage reporting, lease/reference-aware cleanup and retention policy; preserve historical photo references |
 | Purchase price / cost per wear | No currency/purchase record is currently modeled | Explicit amount/currency semantics and factual confirmed-wear denominator |
 | Outfit sharing | Current photos are private/authenticated | Owner-triggered export with chosen content; public links need separate expiry/access design |
-| Virtual try-on / generated styling images | Distinct model-quality, privacy and compute problem | Explicit feasibility evaluation; never substitute generated images for wardrobe/history facts |
+| Live virtual try-on / generated styling images | Required next feature N02 in the [checklist](retro-feature-checklist.md); distinct rendering/compute work | Feasibility evaluation and live swap/tracking pipeline; generated previews stay separate from wardrobe/history facts |
 
 No storage increase is planned: MinIO remains **10 GB** with the existing minimal-resource setup. Do not silently
 expand the PVC, retain every alternate photo edit remotely or enable cleanup that can destroy historical images.

@@ -152,6 +152,15 @@ func (s *Service) Execute(ctx context.Context, name string, raw []byte) (json.Ra
 			if oldOp != name || oldHash != hash {
 				return nil, conflict("Idempotency key was already used for different input")
 			}
+			// A lost claim reply cannot grant permission for a second external send.
+			if name == "wardrobe_daily_delivery_claim" {
+				var replay DailyClaimResult
+				if err = json.Unmarshal(response, &replay); err != nil {
+					return nil, err
+				}
+				replay.SendAllowed = false
+				return json.Marshal(replay)
+			}
 			return response, nil
 		}
 		if err != pgx.ErrNoRows {

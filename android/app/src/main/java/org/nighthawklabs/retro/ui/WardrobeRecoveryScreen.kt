@@ -20,6 +20,10 @@ import org.nighthawklabs.retro.ui.theme.Retro
 fun WardrobeRecoveryScreen(store: WardrobeStore, pending: WardrobePending? = null, draft: WardrobeSavedDraft? = null, onClose: () -> Unit) {
     val entity = pending?.entity ?: draft?.entityID ?: ""
     val garment = pending?.operation?.startsWith("garments_") ?: (draft?.garmentDraft != null)
+    val preferences = pending?.operation == "preferences_update"
+    val feedback = pending?.operation == "outfits_feedback_update"
+    var outfitVersion by remember { mutableStateOf<Long?>(null) }
+    var outfitSummary by remember { mutableStateOf<String?>(null) }
     var requested by remember { mutableStateOf<JsonObject>(JsonObject(emptyMap())) }
     var current by remember { mutableStateOf<JsonObject>(JsonObject(emptyMap())) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -31,11 +35,25 @@ fun WardrobeRecoveryScreen(store: WardrobeStore, pending: WardrobePending? = nul
     suspend fun load() {
         loading = true; version = null; requested = JsonObject(emptyMap()); current = JsonObject(emptyMap()); selected = emptySet(); problem = null
         try {
-            if (garment) {
+            if (preferences) {
+                val read = store.read("preferences_get", WardrobeEmpty(), WardrobeEmpty.serializer(), WardrobePreferencesResult.serializer())
+                val p = checkNotNull(read.value?.takeIf { !read.cached }) { read.problem ?: "A fresh settings record is needed." }.preferences
+                check(p.id == entity); version = p.version; current = ApiJson.encodeToJsonElement(WardrobePreferences.serializer(), p).jsonObject
+            } else if (feedback) {
+                val outfitID = checkNotNull(pending?.body?.get("outfit_id")?.jsonPrimitive?.content)
+                val read = store.read("outfits_feedback_get", WardrobeID(outfitID), WardrobeID.serializer(), WardrobeFeedbackResult.serializer())
+                val r = checkNotNull(read.value?.takeIf { !read.cached }) { read.problem ?: "A fresh feedback record is needed." }
+                check(r.feedback.id == entity && r.outfit_state == "worn") { "Restore or record this wear before editing feedback." }
+                val outfit = store.read("outfits_get", WardrobeID(outfitID), WardrobeID.serializer(), WardrobeOutfitResult.serializer())
+                val o = checkNotNull(outfit.value?.takeIf { !outfit.cached }) { "Load the current wear before reviewing feedback." }.outfit
+                check(o.version == r.current_outfit_version) { "The outfit changed while loading. Refresh before reviewing feedback." }
+                outfitSummary = "Review current wear: ${o.title} · ${o.day} · ${o.items.joinToString(", ") { it.snapshot?.name ?: it.garmentID }}"
+                version = r.feedback.version; outfitVersion = o.version; current = ApiJson.encodeToJsonElement(WardrobeFeedback.serializer(), r.feedback).jsonObject
+            } else if (garment) {
                 val read = store.read("garments_get", WardrobeID(entity), WardrobeID.serializer(), WardrobeGarmentResult.serializer())
                 val value = checkNotNull(read.value?.takeIf { !read.cached }) { read.problem ?: "A fresh record is needed before reapplying edits." }.garment
                 check(value.archivedAt == null) { "Restore this garment before editing its fields." }
-                version = value.version; current = WardrobeGarmentDraft(value).fields()
+                version = value.version; current = JsonObject(WardrobeGarmentDraft(value).fields() + ("care" to (value.care?.let { ApiJson.encodeToJsonElement(WardrobeCare.serializer(), it) } ?: JsonNull)))
             } else {
                 val read = store.read("outfits_get", WardrobeID(entity), WardrobeID.serializer(), WardrobeOutfitResult.serializer())
                 val value = checkNotNull(read.value?.takeIf { !read.cached }) { read.problem ?: "A fresh record is needed before reapplying edits." }.outfit
@@ -47,7 +65,7 @@ fun WardrobeRecoveryScreen(store: WardrobeStore, pending: WardrobePending? = nul
             else if (draft?.garmentDraft != null && (draft.garment != null || draft.dependency != null)) WardrobeDraftValidation.patch(draft.garmentDraft.fields(), draft.originalGarment().fields())
             else if (draft?.outfitDraft != null && (draft.outfit != null || draft.dependency != null) && !draft.confirming) WardrobeDraftValidation.patch(draft.outfitDraft.fields(), draft.originalOutfit().fields())
             else error("Resume this draft in its editor. Create and confirm flows need their full review.")
-            val allowed = if (garment) setOf("name", "category", "availability", "subtype", "colours", "warmth", "seasons", "formality", "material", "brand", "notes", "favourite") else setOf("day", "time_zone", "label", "occasion", "notes", "items")
+            val allowed = if (preferences) (WardrobeSettingFields.preferences + "machine_presets").toSet() else if (feedback) WardrobeSettingFields.feedback.toSet() else if (garment) setOf("name", "category", "availability", "subtype", "colours", "warmth", "seasons", "formality", "material", "brand", "notes", "favourite", "care") else setOf("day", "time_zone", "label", "occasion", "notes", "items")
             requested = JsonObject(changes.filter { it.key in allowed })
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { version = null; if (store.isCurrentOwner) problem = e.localizedMessage }
@@ -58,17 +76,20 @@ fun WardrobeRecoveryScreen(store: WardrobeStore, pending: WardrobePending? = nul
         try {
             val patch = JsonObject(requested.filter { it.key in selected })
             check(patch.isNotEmpty())
-            val fields = JsonObject(WardrobeDraftValidation.edit(entity, checkNotNull(version)) + ("patch" to patch))
-            val operation = if (garment) "garments_update" else "outfits_update"
+            val fields = JsonObject(WardrobeDraftValidation.edit(entity, checkNotNull(version)) + ("patch" to patch) + if (feedback) mapOf("outfit_id" to checkNotNull(pending?.body?.get("outfit_id")), "expected_outfit_version" to JsonPrimitive(checkNotNull(outfitVersion))) else emptyMap())
+            val operation = if (preferences) "preferences_update" else if (feedback) "outfits_feedback_update" else if (garment) "garments_update" else "outfits_update"
             if (pending != null) { checkNotNull(store.writes).replaceRejected(pending.id, operation, fields); store.onEnqueued?.invoke() }
             else store.submit(operation, entity, draft?.title ?: "Reviewed edits", fields)
-            saved = true; draft?.let { store.drafts?.remove(it.id) }; onClose()
+            saved = true
+            draft?.let { if (it.importPhoto != null) store.drafts?.put(it.copy(garmentDraft = it.originalGarment())) else store.drafts?.remove(it.id) }
+            onClose()
         } catch (e: Exception) { problem = e.localizedMessage }
     }) {
         item {
             Text("Compare requested fields with the latest record. Only checked fields will be reapplied. This creates a new save with the reviewed version; the original request is never changed.", style = MaterialTheme.typography.bodySmall)
             if (loading) CircularProgressIndicator()
             problem?.let { Text(it, color = Retro.tok.rust) }
+            outfitSummary?.let { Text(it) }
             TextButton(onClick = { scope.launch { load() } }, enabled = !loading && !saved) { Text("Refresh latest record") }
         }
         requested.keys.sorted().forEach { key -> item(key = key) {

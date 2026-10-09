@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-10-09T14:00:00Z",
+  "time_zone": "UTC",
+  "coverage": "active_garments_only",
+  "inventory_count": 2,
+  "items": [
+    {
+      "garment_id": "11111111-1111-4111-8111-111111111111",
+      "garment_version": 9007199254740993,
+      "name": "Care review fixture",
+      "availability": "ready",
+      "archived_at": null,
+      "reminder": { "wear_days": 3, "interval_days": 7 },
+      "last_cleaning": {
+        "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "version": 9007199254740993,
+        "completed_at": "2026-10-06T14:00:00Z"
+      },
+      "wears_since_cleaning": {
+        "wear_days": 3,
+        "wear_events": 5,
+        "same_day_wear_days": 1,
+        "same_day_wear_events": 2
+      },
+      "days_since_cleaning": 3,
+      "due": true,
+      "due_reasons": ["wear_threshold"]
+    },
+    {
+      "garment_id": "22222222-2222-4222-8222-222222222222",
+      "garment_version": 1,
+      "name": "Unknown baseline fixture",
+      "availability": "needs_wash",
+      "archived_at": null,
+      "reminder": { "wear_days": null, "interval_days": 7 },
+      "last_cleaning": null,
+      "wears_since_cleaning": null,
+      "days_since_cleaning": null,
+      "due": false,
+      "due_reasons": []
+    }
+  ]
+}

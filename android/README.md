@@ -2,8 +2,13 @@
 
 Kotlin + Jetpack Compose client for the `/retro` engine. Same design language as the iOS client, Android's own controls.
 
+P1 source adds Settings in the toolbar, editable machine presets, care instructions from garment detail and
+feedback from outfit detail. These records use durable frozen saves and selected-field conflict recovery,
+including explicit review of a corrected wear before resaving feedback. Apple assistance is iOS-only; Android
+keeps the same manual contract. P1 builds/tests/deployment are deferred; see the [phase checklist](../docs/retro-implementation-phases.md).
+
 Retro now opens a wardrobe-only shell: **Today / Wardrobe / History**, account-bound to the existing login.
-The combined demo is preserved in `ProductivityDemoShell` for **Sensei**. This increment has not been built or tested.
+The combined demo is preserved in `ProductivityDemoShell` for **Sensei**. M1–M6 source and authored tests have not been built or run.
 See [the engine design](../docs/wardrobe-engine-design.md) and [the extraction plan](../docs/sensei.md).
 
 ```sh
@@ -81,8 +86,8 @@ scoped private no-backup files. Unchanged outfit pieces are omitted from correct
 
 ## Not built yet
 
-Direct model image prompting, voice/follow-up assistance and Sensei extraction remain.
-Core recovery is implemented in source; builds/tests/runtime and device/accessibility checks are deferred at the owner's request.
+Android local inference/speech, later optional features and Sensei extraction remain. M1–M6 core source is implemented;
+builds, tests/runtime and device/accessibility checks remain deferred at the owner's request.
 
 ## Suggestions, insights and recovery (M4 source)
 
@@ -110,3 +115,37 @@ entity and key if its queue row was removed, and conservatively protects it as d
 
 Tests and shared review fixtures are authored but unrun. Actual device/accessibility validation remains M4 work.
 No builds, tests or deployment ran.
+
+## Requests, comparison and reuse (M5 source)
+
+Both clients compare two or three refreshed engine options, showing shared/different garments, roles, reasons and
+missing coverage. Selecting an option checks current garments/versions again before opening the normal composer.
+Reuse from outfit detail refreshes the original and its current garments. Missing, archived, unavailable or pending
+pieces need explicit replacement/removal. Review plan refreshes chosen replacements and starts a new manual plan for
+the selected date/current time zone. Historical notes, wear state and snapshots are not copied into the new record.
+Saving uses the existing draft/queue path with a new entity UUID and retry key; the original outfit stays intact.
+
+Inventory shows the supported predicates, current filters and Clear search filters. Manual outfit preferences and
+all save/reuse/compare paths remain available without inference. Android model/speech helpers remain a later capability
+decision; this increment adds no cloud inference, permissions or dependency.
+
+`WardrobeAssistanceTest` adds real-candidate comparison, new-plan identity/snapshot preservation and fresh/current
+piece checks for archive, laundry, pending changes, service failure and account switching. Tests are authored, unrun.
+No Android build or deployment ran for M5.
+
+## Photo entry, review and launcher shortcuts (M6 source)
+
+Wardrobe → Add from photos uses the system picker for up to 10 photos per selection. Up to 20 imports remain in the
+private account/endpoint no-backup draft scope (12 MiB per normalized photo, 256 MiB import folder budget). Review one
+garment at a time or explicitly choose a current existing item. Save the garment, accept its photo, then finish after
+acknowledgement. Relaunch resumes from Wardrobe or Pending saves. Stable create dependencies and media identities
+reuse existing draft/write/photo queues. Changed bytes, corrupt intent and unfinished/later edits stay visible;
+explicit removal leaves accepted work running. Unreferenced source cleanup requires readable intent and one-day age.
+Existing-item selection is manual; Android gains no inference dependency.
+
+History → Wardrobe review uses validated selected-period server counts/current category totals and links to paginated
+confirmed outfit records and their saved garment facts. Cached count and record freshness stay separate. Launcher
+shortcuts open Add garment, Search wardrobe and Today's outfits through Clerk/onboarding, including warm launches.
+They never save; optional search text is validated to 100 UTF-8 bytes. `WardrobeM6Test` covers parsing, factual counts,
+source integrity/account gates, stable retry identities, corruption and an eager-delivery draft handoff regression.
+Tests are authored, unrun. No M6 Android build or deployment ran.

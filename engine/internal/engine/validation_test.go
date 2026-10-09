@@ -43,7 +43,7 @@ func TestOutfitDatesAndSelections(t *testing.T) {
 }
 func TestOperationBoundary(t *testing.T) {
 	s := New(nil, nil)
-	if len(s.Operations()) != 20 {
+	if len(s.Operations()) != 46 {
 		t.Fatalf("operation count: %d", len(s.Operations()))
 	}
 	op := s.operations["garments_create"]
@@ -96,7 +96,8 @@ func TestSuggestionsAreDistinctAvailableAndRespectRequired(t *testing.T) {
 	dirty := Garment{ID: uuid.NewString(), Version: 1, GarmentData: GarmentData{Name: "dirty", Category: "footwear", Availability: "washing"}}
 	g = append(g, bottom, dirty)
 	in := SuggestInput{Day: "2026-10-08", RequiredIDs: []string{bottom.ID}}
-	options, e := buildSuggestions(g, in)
+	p := preferenceDefaults()
+	options, e := buildSuggestions(g, in, p, nil)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -126,12 +127,12 @@ func TestSuggestionsAreDistinctAvailableAndRespectRequired(t *testing.T) {
 		}
 	}
 	in.Variant = 1
-	alternate, e := buildSuggestions(g, in)
+	alternate, e := buildSuggestions(g, in, p, nil)
 	if e != nil || alternate[0].Fingerprint == options[0].Fingerprint {
 		t.Fatal("shuffle did not change combination")
 	}
 	in.RequiredIDs = []string{dirty.ID}
-	if _, e = buildSuggestions(g, in); e == nil {
+	if _, e = buildSuggestions(g, in, p, nil); e == nil {
 		t.Fatal("unavailable required piece silently dropped")
 	}
 }

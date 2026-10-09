@@ -1,6 +1,8 @@
 package org.nighthawklabs.retro
 
 import android.os.Bundle
+import android.content.Intent
+import org.nighthawklabs.retro.data.WardrobeEntryRequest
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -31,8 +33,19 @@ import org.nighthawklabs.retro.ui.theme.Retro
 import org.nighthawklabs.retro.ui.theme.RetroTheme
 
 class MainActivity : ComponentActivity() {
+    private var entryRequest by mutableStateOf<WardrobeEntryRequest?>(null)
+    private fun consumeEntry() {
+        entryRequest = null
+        intent.action = Intent.ACTION_MAIN
+        intent.removeExtra("wardrobe_query")
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent); setIntent(intent)
+        WardrobeEntryRequest.parse(intent.action, intent.getStringExtra("wardrobe_query"))?.let { entryRequest = it }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        entryRequest = WardrobeEntryRequest.parse(intent.action, intent.getStringExtra("wardrobe_query"))
         DevMode.configure(
             engine = intent.getStringExtra("dev_engine"),
             hour = intent.getStringExtra("dev_hour")?.toIntOrNull(),
@@ -42,7 +55,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             RetroTheme {
                 var showAccount by remember { mutableStateOf(false) }
-                AppRoot(onOpenAccount = { showAccount = true })
+                AppRoot(onOpenAccount = { showAccount = true }, entryRequest = entryRequest, onEntryConsumed = ::consumeEntry)
                 if (showAccount) {
                     AccountSheet(onDismiss = { showAccount = false })
                 }

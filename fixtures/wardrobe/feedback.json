@@ -1,0 +1,14 @@
+{
+  "feedback": {
+    "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "outfit_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "outfit_version": 9007199254740993,
+    "version": 2,
+    "comfort_rating": 4,
+    "warmth": "too_cold",
+    "comment": "Needs a layer",
+    "updated_at": "2026-10-09T12:00:00Z"
+  },
+  "current_outfit_version": 9007199254740994,
+  "outfit_state": "worn"
+}

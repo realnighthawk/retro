@@ -52,14 +52,27 @@ class WardrobeStore(
         selectedDay?.let { refreshDay(it) }
     }
 
-    fun submit(operation: String, entity: String, title: String, fields: kotlinx.serialization.json.JsonObject, context: String? = null) {
-        checkNotNull(writes) { "Pending saves are unavailable." }.enqueue(operation, entity, title, fields, context)
+    fun submit(operation: String, entity: String, title: String, fields: kotlinx.serialization.json.JsonObject, context: String? = null): WardrobePending {
+        val queue = checkNotNull(writes) { "Pending saves are unavailable." }
+        queue.enqueue(operation, entity, title, fields, context)
+        val accepted = queue.items.first { it.entity == entity }
         onEnqueued?.invoke()
+        return accepted
     }
 
     suspend fun choices(query: WardrobeInventoryQuery): Api<WardrobePage<WardrobeGarment>> = engine.call("garments_list", query)
+    suspend fun context(input: WardrobeContextInput): Api<WardrobeContext> = engine.call("wardrobe_context_get", input)
 
     suspend fun currentSummary(item: WardrobePending): String {
+        if (item.operation == "preferences_update") {
+            val result = engine.call<WardrobeEmpty, WardrobePreferencesResult>("preferences_get", WardrobeEmpty())
+            return if (result is Api.Ok) "Current wardrobe settings · version ${result.value.preferences.version}. Review latest record to compare saved fields." else result.problem ?: "Could not load settings."
+        }
+        if (item.operation == "outfits_feedback_update") {
+            val id = (item.body["outfit_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return "Missing outfit identity."
+            val result = engine.call<WardrobeID, WardrobeFeedbackResult>("outfits_feedback_get", WardrobeID(id))
+            return if (result is Api.Ok) "Current feedback · version ${result.value.feedback.version} · ${result.value.outfit_state}. Review latest record to compare feedback and the current wear." else result.problem ?: "Could not load feedback."
+        }
         if (item.operation.startsWith("garments_")) {
             val result = engine.call<WardrobeID, WardrobeGarmentResult>("garments_get", WardrobeID(item.entity))
             return if (result is Api.Ok) result.value.garment.let { g ->
@@ -212,6 +225,7 @@ class WardrobeStore(
 
     suspend fun reviewSuggestion(suggestion: WardrobeSuggestion, query: WardrobeSuggestQuery): WardrobeOutfitDraft {
         query.validate()
+        check(stillOwner()) { "Sign in again before reviewing this suggestion." }
         val ids = suggestion.items.map { it.garmentID }
         require(ids.size in 1..30 && ids.distinct().size == ids.size && query.requiredIDs.all { it in ids } && query.excludedIDs.none { it in ids } && suggestion.fingerprint !in query.excludedCombinations) { "This suggestion does not match the requested pieces. Generate again." }
         val pieces = suggestion.items.map { item ->
@@ -224,10 +238,12 @@ class WardrobeStore(
             check(garment.id == item.garmentID && garment.version == item.version && garment.archivedAt == null && garment.availability == "ready") { "A suggested piece changed or is unavailable. Generate fresh suggestions." }
             WardrobeSelection(garment.id, garment.name, item.role)
         }
-        return WardrobeOutfitDraft(day = query.day, occasion = query.occasion, items = pieces, source = "suggestion")
+        check(pieces.none { writes?.contains(it.id) == true }) { "Resolve the pieces' pending saves and generate again." }
+        return WardrobeOutfitDraft(day = query.day, occasion = query.occasion, items = pieces, source = "suggestion").also { it.fields() }
     }
 
     suspend fun reuseOutfit(id: String): WardrobeReuseReview {
+        require(WardrobeMediaPath.path(id) != null) { "Invalid original outfit identity." }
         check(stillOwner() && writes?.contains(id) != true) { "Wait for the original outfit's pending save before reusing it." }
         val result = engine.call<WardrobeID, WardrobeOutfitResult>("outfits_get", WardrobeID(id))
         currentCoroutineContext().ensureActive()
@@ -250,13 +266,17 @@ class WardrobeStore(
         return WardrobeReuseReview(outfit, pieces)
     }
     suspend fun refreshReusePlan(draft: WardrobeOutfitDraft): WardrobeOutfitDraft {
+        check(stillOwner()) { "Sign in again before composing this plan." }
+        require(draft.state == "planned" && draft.source == "manual") { "Reuse starts a new manual plan. Review its pieces first." }
+        draft.fields()
         val pieces = draft.items.map { item ->
             val result = engine.call<WardrobeID, WardrobeGarmentResult>("garments_get", WardrobeID(item.id))
             currentCoroutineContext().ensureActive(); check(stillOwner()) { "Sign in again before composing this plan." }
             check(result is Api.Ok && result.value.garment.id == item.id && result.value.garment.archivedAt == null && result.value.garment.availability == "ready" && writes?.contains(item.id) != true) { "${item.name} changed or could not be refreshed. Review the pieces again." }
             item.copy(name = result.value.garment.name)
         }
-        return draft.copy(items = pieces).also { it.fields() }
+        check(pieces.none { writes?.contains(it.id) == true }) { "A piece has a pending save. Review the pieces again." }
+        return draft.copy(items = pieces)
     }
 
     private suspend fun <T> restore(key: String, serializer: KSerializer<T>): WardrobeRead<T> = withContext(Dispatchers.IO) {

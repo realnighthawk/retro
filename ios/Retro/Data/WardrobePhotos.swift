@@ -299,6 +299,12 @@ struct WardrobePhotoBatch: Codable, Identifiable {
         release(before)
     }
 
+    func cachedThumbnail(_ id: String) -> Data? {
+        guard engine.isCurrentOwner, WardrobeMediaPath.path(id: id, variant: "thumbnail") != nil else { return nil }
+        let file = cache.appending(path: "\(id)-thumbnail.jpg")
+        guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0, size <= 12 * 1024 * 1024 else { return nil }
+        return try? Data(contentsOf: file)
+    }
     func image(_ id: String, variant: String, reload: Bool = false) async -> Api<Data> {
         guard engine.isCurrentOwner, WardrobeMediaPath.path(id: id, variant: variant) != nil else { return .unauthorized }
         let file = cache.appending(path: "\(id)-\(variant).jpg")

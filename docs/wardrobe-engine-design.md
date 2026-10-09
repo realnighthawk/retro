@@ -4,7 +4,10 @@ Design and implementation notes — 2026-10-08. **Retro owns wardrobe; [Sensei](
 The Go/PostgreSQL backend and MinIO photo pipeline are implemented in [engine/](../engine/README.md).
 The generated [OpenAPI contract](../engine/api/openapi.json) describes implemented requests/results.
 Router/Helm wiring is present in `agent-harness`; deployment and final verification are deferred at the owner's request.
-Native integration, the focused wardrobe shell and Sensei extraction remain future work.
+Native M1–M6 integration and the focused wardrobe shell are in source. P1–P3.3 extend the shared registry to 46
+operations, including settings/care/feedback, daily selections/pairings, daily automation and manual laundry. Source progress and
+limits are tracked in the [implementation phases](retro-implementation-phases.md). P3.4 reuses existing operations
+for reviewed native Apple/agent laundry timing/batches. Sensei extraction remains future work.
 
 ## Outcome and architecture
 
@@ -40,7 +43,7 @@ search and wear summaries; do not inherit Finance's TimescaleDB/pgvector require
 
 [Wardrowbe's overview](https://github.com/Anyesh/wardrowbe/tree/1f6f6f49150dc2cc4fe6d0b28460213e9d461e52#features)
 offers photo tagging, contextual recommendations, wear history/feedback and analytics. These are useful directions.
-Household sharing and scheduled messaging are outside our first release.
+Household sharing remains outside the first release. The owner's expanded scope adds scheduled connected delivery in P2.5.
 
 | Source reviewed | Retro design choice |
 | --- | --- |
@@ -85,6 +88,11 @@ Travel or changing the default timezone never silently shifts past outfits.
 | `outfits` | ID, version, day/timezone, state (`planned`, `worn`, `void`), label/occasion/notes, source, confirmation time, previous state for undo |
 | `outfit_items` | Outfit/garment IDs, position, chosen role, metadata/photo snapshot when confirmed |
 | `outfit_media` | Media references retained by the current confirmed snapshot |
+| `day_selections` | Stable ID/local date, version, nullable selected outfit, captured time zone and update time; explicit clear retains the row |
+| `pairings`, `pairing_items` | Named reusable combinations, version/archive state and ordered real garment references; presentation reads current garment facts |
+| `daily_settings` | Versioned desired daily mode/time/zone and optional connected delivery target; Temporal status is separate |
+| `daily_runs` | One immutable ranked snapshot per date/zone, settings version/expiry and nullable claim/agent-recorded receipt |
+| `laundry_loads`, `laundry_items` | Versioned dated plans/programme, confirmed progress timestamps, immutable reviewed care/garment snapshots and exclusive active-garment reservation |
 | `changes` | Entity, operation, router/worker actor, before/after, timestamp; append-only audit |
 | `requests` | Key, operation, normalized input hash, original successful result |
 | `media_jobs` | Media ID, attempt, lease token/expiry, next attempt, done flag; checksum/error live on media |
@@ -98,8 +106,10 @@ a tee and sweater may both be tops but occupy base/mid layers. Support dresses, 
 the demo's one-item-per-slot restriction is not a database rule. Unknown/other pieces remain manually usable.
 
 Availability is `ready`, `needs_wash`, `washing`, `unavailable`, independent of archival or photo processing.
-It is explicitly versioned and audited. First release has no automatic wash intervals or mutable wears-since-wash
-counter. Detailed dated wash events are a later feature; changing current availability does not rewrite past outfits.
+It is explicitly versioned and audited. P3.1 records confirmed wash/dry completion and P3.3 derives wears since the
+latest completed cleaning from current confirmed history, without a mutable counter. Same-day timing remains
+uncertain and missing baselines unknown. Optional per-garment review thresholds are owner preferences; they never
+infer dirtiness or change availability. Changing availability alone does not establish cleaning or rewrite outfits.
 
 An outfit has 1–30 unique existing garment IDs in presentation order. Multiple outfits can share a date.
 New plans require active garments. Manual historical wears may include archived garments and incomplete combinations.
@@ -126,24 +136,37 @@ Capabilities and OpenAPI are generated from the registry; read operations also u
 
 | Operations | Semantics |
 | --- | --- |
+| `preferences_get`, `preferences_update` | Shared wardrobe settings and machine presets; versioned partial edits and native save/recovery; eligible-candidate ranking uses preferences in P2.1 |
+| `outfits_feedback_get`, `outfits_feedback_update` | Explicit worn-outfit feedback; separate stable identity/version, outfit-version review, reset/correction/audit |
+| `wardrobe_context_get` | Bounded explicit-record context with source IDs/versions/freshness, coverage and wardrobe capabilities; no remote jobs |
+| `wardrobe_daily_settings_get`, `wardrobe_daily_settings_update` | Separate versioned daily automation settings; ordinary partial-patch/audit, no wake creation on save |
+| `wardrobe_daily_get`, `wardrobe_daily_generate` | Read or generate one cached ranked snapshot per date/zone, current settings version and bounded local window; no plan/wear |
+| `wardrobe_daily_delivery_claim`, `wardrobe_daily_delivery_complete` | One authorized external send reservation and agent-recorded receipt; no engine notifier or automatic uncertain resend |
+| `laundry_preview` | Bounded active-needs-wash grouping by explicit programme and confirmed care; unknown/incompatible items retain reasons |
+| `laundry_create`, `laundry_get`, `laundry_list`, `laundry_update` | Editable compatible planned loads with source versions and retained care snapshots; paginated state/garment history |
+| `laundry_progress`, `laundry_cancel` | Versioned next-step confirmations, exclusive active pieces, ready only after dry/return confirmation; cancellation retains history and returns active pieces to needs wash |
 | `garments_create` | Optional client UUID, name/category and optional attributes; image not required |
 | `garments_get`, `garments_list` | Record or filtered inventory, including derived wear stats |
-| `garments_update` | Partial patch, including availability and ordered ready media IDs; omitted retains, null clears nullable fields |
+| `garments_update` | Partial patch, including availability, reviewed care and ordered ready media IDs; omitted retains, null clears nullable fields |
 | `garments_archive`, `garments_restore` | Versioned lifecycle; restore retains availability |
 | `outfits_create` | Optional client UUID, day/timezone/items, explicit planned or worn state |
 | `outfits_get`, `outfits_list` | Historical snapshots for worn outfits, current inventory detail for plans; void outfits retain stored snapshots where present |
 | `outfits_update` | Partial patch of date/items/context; state transitions use dedicated operations |
 | `outfits_confirm` | Planned → worn with final selected items; revalidate and snapshot atomically |
 | `outfits_void`, `outfits_restore` | Exclude from statistics or explicitly undo removal |
-| `wardrobe_day_get` | Date's plans/wears and required garment presentation data; voids opt-in |
-| `wardrobe_suggest` | Read-only suggestions; required/excluded IDs, occasion, explicit warmth, variant and excluded fingerprints |
+| `wardrobe_day_get` | Date's plans/wears, current garment presentation and stable daily selection; voids opt-in, selected void references remain visible with a problem |
+| `wardrobe_day_selection_update` | Select an existing reviewed ready plan for its local day, or clear with a version check; never records wear |
+| `pairings_create`, `pairings_get`, `pairings_list`, `pairings_update`, `pairings_archive`, `pairings_restore` | Reusable 2–30 garment combinations, current facts, garment-linked pagination, versioned edits/lifecycle and audit |
+| `wardrobe_suggest` | Read-only preference/explicit-rating ranking with source/version and coverage; required/excluded IDs, occasion, explicit warmth, variant, excluded fingerprints, optional expected preference version and replacement role |
 | `wardrobe_analyze` | Date-filtered outfit events/wear days, unworn inventory and current-category totals; lifetime last-worn is on garments |
-| `history_list` | Owner-scoped garment/outfit/media audit |
+| `history_list` | Wardrobe-scoped garment/outfit/media/preferences/feedback/pairing/day-selection/daily-settings/daily-run audit |
 | `media_prepare`, `media_get`, `media_retry` | Reserve upload, inspect status/private content paths, retry failed processing |
 
 All mutations require database-scoped `idempotency_key` (1–128 characters) across operations. Data, audit and the saved
 result commit together. Same key and normalized input/operation returns the original result; reuse with changed input
 returns `conflict`. Check committed retries before current versions. Failures roll back without reserving keys.
+Daily delivery claims are the exception: replay returns the stored run with `send_allowed: false`, so a lost
+grant does not authorize another external send. Provider retries still need deployed idempotency support.
 Initially successful retry records do not expire. Client-generated UUIDs separately prevent duplicate creates with
 a different key; an existing ID returns `duplicate` without overwriting.
 
@@ -231,15 +254,29 @@ First release uses deterministic rules, with no required model or weather-servic
 
 The [on-device intelligence plan](on-device-intelligence-plan.md) now schedules optional native garment drafts, OCR,
 local cutout previews and outfit-request interpretation during client completion. These use existing operations;
-they do not add backend inference. External vision tagging, explicit weather lookup and comfort/style feedback remain later work.
+they do not add backend inference. P1 explicit comfort/style feedback and P2.4 connected weather context are now
+in source; external vision tagging and broader automatic forecast ranking remain later work.
 Reuse existing agents through MCP for orchestration before building an in-engine provider framework. AI proposals
 carry source/model, checksum and garment version. Review/apply is a separate versioned action; late results cannot
 overwrite manual edits. Model-reported confidence is not a calibrated guarantee; fit/material may be unknowable.
 
+The owner's expanded requirements are tracked in the [next-feature checklist](retro-feature-checklist.md): the app
+will use a shared agent endpoint with access to user data/connections for daily suggestions, care/load planning,
+capture enrichment and other orchestration. Live camera try-on is required, with rendering feasibility still pending.
+These are future integrations/domain extensions; reuse this registry and keep authentication at the router.
+Prefer on-device Foundation Models interpretation/explanation with read-only tools over this registry and bounded
+agent-connected context. Native image/speech/tracking handles suitable local work; scheduled/heavier tasks use the
+existing agent. Apple Private Cloud Compute is excluded; domain validation and durable saves stay in this engine.
+
 Weather includes source, chosen location precision, observation/forecast time and freshness. Label stale/unknown
 context and keep manual use available. Optional calendar/Sensei context supplies occasion/time windows without
 copying tasks or journals. No IP geolocation fallback. Skipping is not automatically dislike; learn from explicit
-feedback. Notifications, sharing, virtual try-on, packing, wash-event history and cost-per-wear are deferred.
+feedback. P2.5 adds optional connected delivery with one authorized attempt and visible uncertain outcomes;
+P3.1 adds manual wash/dry records with retained care snapshots and confirmed availability transitions.
+P3.3 adds derived wears since completed cleaning and opt-in in-app wear-day/calendar-interval review reminders.
+P3.4 adds source-bound Apple/agent proposals for compatible pieces and dates using bounded saved outfit needs,
+with native refresh/review before applying to the existing load form. Provider-specific delivery guarantees/iPhone
+push, sharing, virtual try-on, packing, laundry notification delivery, richer scheduling and cost-per-wear are deferred.
 
 ## Identity, offline and deployment
 

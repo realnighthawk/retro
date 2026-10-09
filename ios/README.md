@@ -2,8 +2,172 @@
 
 SwiftUI (iOS 17+) client for the `/retro` engine.
 
+P1 source adds Wardrobe settings in the toolbar, editable machine presets, care instructions from garment detail
+and feedback from outfit detail. Saves use the existing durable queue and selected-field conflict recovery.
+On supported iOS 26 devices, on-device typed proposals and read-only source-linked tools assist these forms;
+care proposals always require review/confirmation. Manual editing remains available. P1 builds/tests/deployment
+are deferred; see the [phase checklist](../docs/retro-implementation-phases.md) and [agent boundary](../docs/retro-agent-contract.md).
+
+Today → **Ask Retro** now runs Apple's native tool loop with fresh wardrobe preferences and optional `ask_agent`
+delegation through `/gateway/mcp`. Connected help defaults off; **Ask connected agent** is an explicit alternative
+on any supported iOS device. The app owns UUIDs/auth/polling, full native owner prompts, durable answers/stop intents
+and account/generation fences. Attempts have a 90-second deadline and bounded calls/context. Reopening checks the
+same remote job instead of regenerating it. Stop remains pending until confirmed. The gateway uses its existing
+agent permissions; generic advice is not a wardrobe save or verified specialist fact. This completes P1.4 in source;
+P2.1 daily ranking, P2.4 outfit-context retrieval and P2.5 daily automation are now in source. `WardrobeAgentTests` is authored, unrun.
+
+P2.1 adds **Outfit choices** on Today, loaded automatically for the selected local date and refreshed on return,
+day changes, saves and pull-to-refresh. Choices use stored preferences and explicit rated wears, with source version,
+generation time, reasons, missing coverage and cached/error states. Review rechecks current ranking constraints and
+garment versions, then opens the usual unsaved plan editor. Individual swaps replace the same role while keeping
+the other pieces fixed; Suggestions adds lock/unlock and clear controls. Refresh never rewrites an existing plan or
+records a wear. Rule/contract/review tests and `ranked-suggestions.json` are authored; runtime validation is deferred.
+
+P2.2 adds **Selected for this day**: save a plan, then choose it from Today after fresh selection/outfit review.
+Generated choices refresh independently. Selection survives explicit wear confirmation; moved/voided/unavailable
+plans show a review message. Clear retains the outfit and its history. Choice requests use the existing durable
+queue and have an explicit conflict review in Pending saves.
+
+**Saved pairings and looks** is available from Wardrobe; garment detail offers **What goes with this?**. Save/edit
+combinations of 2–30 real pieces, set manual roles, archive/restore, or start from an outfit's pieces. Review as a new
+plan refreshes the pairing version and each current garment before opening the ordinary plan editor. Unavailable
+pieces require replacement or manual composition. Unsaved pairing forms stay in memory with discard confirmation;
+accepted saves are durable. The new engine migration/operations must be deployed for these flows. Focused native
+tests and pairing/selected-day fixtures are authored, unrun; no native build or deployment was performed for P2.2.
+
+P2.3 adds **Help me choose or swap on this device** to Today/Suggestions and local help in refreshed Compare.
+On supported iOS 26 devices, Apple's model reads fresh engine choices with scoped aliases, versions, locks, scores
+and bounded reasons. It can explain/select a real option or propose a specific unlocked piece to swap. Native UI
+shows complete engine evidence separately from model commentary and requires review/acknowledgement of unsupported
+conditions. Plan review opens the ordinary unsaved editor; swap review preserves constraints and opens Suggestions.
+No model response saves a plan, records a wear or alters pairings. Optional connected help reuses the existing MCP
+controller/journal and native owner questions; generic prose does not establish weather/calendar facts. Manual Compare,
+Describe an outfit and per-piece swaps remain available. `WardrobeCandidateTests` is authored, unrun. XcodeGen was
+run; native builds, device/model evaluation and deployment remain deferred.
+
+P2.4 adds **Retrieve connected context** inside Outfit help. Enable connected help, enter a weather location, and
+retrieve bounded weather/calendar/travel values for the selected date and captured time zone. The gateway agent
+discovers available connections; native code resolves fields from actual provider-result pointers, checking units,
+dates, source identities and freshness. Review displays accepted facts, source details/pointers, provider time zones,
+coverage and expiry. Missing connections or unsupported/stale evidence leave manual controls available. Travel entries
+are agent-selected context and do not establish bookings; empty lists do not establish an empty calendar. Forecast
+issue time is optional, with unknown provider cache age disclosed when absent.
+
+Retrieval and manual warmth/occasion adjustments work without Apple Intelligence. On supported devices, Apple's
+`read_outfit_context` tool consumes bounded facts and can propose sourced adjustments. Review refreshes engine
+choices, retains the existing locks/exclusions and opens Suggestions with the reviewed warmth or occasion. Fresh
+native context is reused by the model without another remote task. Saved pending context requests resume their
+original IDs; owner input and stop/recovery use the existing journal. Connected requests ask for reads only and use
+the gateway's existing permissions, rather than a separate server-enforced read-only grant.
+
+Deploy gateway 1.1 and this client together: context needs its bounded `server`/`tool` provenance, 4096-byte sources
+and 32 KiB envelopes. P2.4 adds no provider SDK, new URL setting or engine operation. Broader automatic weather
+selection remains open. `WardrobeOutfitContextTests` and `outfit-context.json` are
+authored; XcodeGen includes the new files. Tests, native/gateway builds, live connection/model evaluation and
+deployment remain deferred.
+
+P2.5 adds Today → **Daily automation**. Save enabled/mode, local hour/minute, fixed IANA time zone and an optional
+connected-service recipient using the ordinary durable queue. Then explicitly apply/pause the saved schedule or
+check it through the connected agent. Saving alone changes desired settings. Native status uses actual fresh
+Temporal inspect evidence for the one user-scoped `retro-daily-outfits` wake; prose is not confirmation. Disabled
+settings accept a paused wake or explicit not-found evidence. Interrupted apply attempts can leave a schedule
+active; original task recovery, native owner questions, check/pause and Pending saves remain available.
+
+The existing agent can generate while the phone sleeps. The engine caches one ranked snapshot per date/zone in a
+two-hour configured window, checks the settings version and expires it at the following local midnight. Today
+shows scheduled choices separately from fresh choices. Review refreshes eligibility/preferences and garments
+before opening an unsaved plan; it never changes your selected plan or wear history. Time zones stay fixed until
+edited, DST uses calendar dates, and a nonexistent scheduled time can skip that day's firing.
+
+Empty recipient means generation only. Optional delivery uses a discovered connected service and one authorized
+engine reservation. Replays never grant another attempt; uncertain outcomes remain visible and are never
+automatically resent. A stored delivery receipt is agent-recorded, not provider-verified. Provider-specific retries
+still need idempotency support; iPhone push/APNs is not configured. This surface works without Apple Intelligence;
+interactive interpretation/explanation continues to use the local Apple model where available.
+
+Deploy the updated harness worker, engine/migration 0006 and this client together, with gateway 1.1 provenance.
+`WardrobeDailyAutomationTests` and `daily-automation.json` are authored; XcodeGen includes the new files. Tests,
+native builds, live schedules/senders, migrations and deployment remain deferred.
+
+P3.1 adds Wardrobe → **Laundry loads** and garment detail → **Wash history and loads**. Choose an explicit machine,
+hand-wash or dry-clean programme, or copy an existing machine preset, then **Review compatible groups**. The engine
+checks confirmed care and separates colour groups/Wash separately items. Unknown or incompatible items retain a
+reason and access to the existing care editor/local helper. Select 1–30 current pieces from one group and save an
+editable dated plan; saving does not start washing. Presets with Unknown drying need an explicit choice.
+
+Load detail confirms start, wash finished/begin drying and dry/ready separately. Garments stay unavailable through
+drying; professional care completes on returned-clean confirmation. Active garment edits/photo attachment/archive
+are blocked until completion/cancel. Cancel keeps history and returns active pieces to Needs wash. Actual server
+timestamps and retained garment/care snapshots are separate from wear history. No automatic dirtiness or machine
+capacity assumption is added. Pending saves replays original keys/bodies and reviews rejected plans against current
+load/group sources; rejected progress opens current state for inspection. Unsaved forms stay in memory with discard
+confirmation; accepted saves are durable. Manual behaviour works without Apple Intelligence.
+
+Deploy the engine/migration 0007 and this client together. `WardrobeLaundryTests` and the synthetic `laundry.json`
+are authored; XcodeGen includes the new files. Suites, native builds, migration execution, device/runtime checks
+and deployment remain deferred.
+
+P3.2 adds **Plan a load → Describe a laundry programme** with typed requests or the existing reviewed on-device speech
+input. Apple guided generation proposes explicit programme changes and short request excerpts. Numeric temperatures
+need Celsius units; vague cold/warm/hot and other units need manual choices. Explicitly named unique presets copy
+their actual native values; used presets are refreshed/version-checked before applying. Select fields and acknowledge
+unsupported conditions. Applying updates the form, invalidates groups and never chooses pieces, saves or starts a load.
+Incomplete settings remain visible until manually completed. Existing compatibility/version/queue rules still apply.
+
+**Care instructions → Scan a care-label photo** uses local Vision OCR without Apple Intelligence. Review/correct text
+before replacing label evidence; the photo is not uploaded. Applying sets source Label and clears care confirmation,
+leaving other facts unchanged. Existing local care drafting then extracts text-supported changes; numeric temperature
+drafts require explicit Celsius units. Symbols, uncertain instructions and other units require manual review.
+Language drafts use the existing eligible iOS 26/device/model/locale gate; manual controls and OCR still work without it.
+Requests use no agent or Private Cloud Compute. Cancellation/timeouts and account/form/source checks prevent late applies.
+`WardrobeLaundryAssistanceTests` reuse the preferences fixture and cover evidence, preset sources, partial programmes
+and reviewed OCR handoff. Tests, native builds, real model/OCR/device checks and deployment are unrun. The backend
+P3.2 adds no operation, migration or configuration.
+
+P3.3 adds **Wardrobe → Laundry check-in**, also linked from laundry loads and garment detail → **Wears since cleaning
+and reminders**. The complete active-wardrobe read supports up to 2000 pieces; a garment-specific read retains
+archived history. It shows the latest completed dry/clean return, definite later wear days/records, separate
+same-day timing-unclear records and calendar age in the displayed IANA time zone. Missing cleaning baselines remain
+unknown. Corrected/void/restored wear history updates the derived count; cancelled/unfinished loads never reset it.
+
+**Review reminder thresholds** opts a garment in to distinct wear-day and/or calendar-day care review. The first
+threshold reached prompts an in-app review. Same-day uncertain wears do not advance wear thresholds; washing or
+archived pieces pause reminders. Turning reminders off clears only the optional preference. Check-ins refresh on
+foreground/day/clock changes and acknowledgements; cached reads retain their assessed timestamp. No background
+notification is scheduled and no reminder changes availability or means proven dirtiness. Links open care, actual
+availability and retained load history. Saving thresholds reuses the ordinary frozen garment queue, versions/audit
+and rejected-field recovery; unsaved forms stay in memory with discard protection.
+
+`WardrobeLaundryCheckInTests` and `laundry-check-in.json` cover nullable baselines, exact 64-bit sources, due/paused
+invariants, calendar age, opt-in/clear and lost-acknowledgement replay. Tests, native builds, real runtime/device
+checks and deployment remain deferred. The backend now has 46 operations and migration 0008 adds one existing-table
+lookup index; deploy engine/migrations and iOS together. P3.4 below adds reviewed timing/batches.
+
+P3.4 adds **Plan a load → Review compatible groups → Plan batches around upcoming outfits**. Choose a need-by date
+within 14 local calendar dates. The programme/time zone remain those reviewed in the form. Fresh existing preview/
+outfit reads feed eight compatible pieces and four earliest same-zone plans from one 20-plan page. Coverage shows
+partial pages, omitted pieces/plans, other-zone plans and blocked care. Existing laundry plans, machine capacity
+and wash/dry durations are not assessed; the ordinary complete manual group editor remains available.
+
+**Plan on this device** uses Apple's model with a native read tool, optional generic MCP `ask_agent` delegation and
+the existing source-pointer connected context adapter for the need-by day. **Ask connected planner** works without
+Apple Intelligence and returns schema-bound proposals through the same durable agent journal. Both use exact native
+source bindings/aliases, preserve the owner request, bound queries and reject mixed groups, unsupported pieces,
+repeated pieces, scope changes and missing provider evidence. Same unchanged sources/request text reuse saved agent
+tasks; generic remote permissions remain those configured on the agent. No Private Cloud Compute is used.
+
+Review a single proposed batch, acknowledge unresolved conditions and refresh its sources before applying it to the
+load form. Application does not save, start or claim garments will be dry by a need. Changed sources, pending writes,
+cached/stale data, account/form edits or midnight block application. Existing queue, frozen request identity and
+rejected-load recovery handle the subsequent save. Other batches are not saved automatically. Background/dismissal/
+edits cancel local work and retain remote stop intent. The existing bounded loop and owner-question UI are reused.
+
+`WardrobeLaundryPlanningTests` and `laundry-planning.json` are authored, unrun. Xcode project generation includes the
+new files. Native builds, suites, actual model/agent/device checks and deployment remain deferred. No new engine
+operation, migration, gateway/router/chart value or storage allocation is needed; the registry remains 46.
+
 Retro now opens a wardrobe-only shell: **Today / Wardrobe / History**, account-bound to the existing login.
-The combined demo is preserved in `ProductivityDemoShell` for **Sensei**. This increment has not been built or tested.
+The combined demo is preserved in `ProductivityDemoShell` for **Sensei**. The signed M6 app build/install/launch succeeded on the connected iPhone 17 Pro on 2026-10-08 and its running process was confirmed; new tests remain unrun.
 See [the engine design](../docs/wardrobe-engine-design.md) and [the extraction plan](../docs/sensei.md).
 
 ```sh
@@ -91,8 +255,8 @@ account-switch/cancellation, acknowledgement persistence failure and snapshot-pr
 
 ## Not built yet
 
-Direct model image prompting, voice/follow-up assistance and Sensei extraction remain.
-Core recovery is implemented in source; builds/tests/runtime and device/accessibility checks are deferred at the owner's request.
+Direct model image prompting, later optional features and Sensei extraction remain. M1–M6 source is implemented;
+The signed M6 iPhone build/install/launch passed; suites/full runtime and device/accessibility checks remain pending.
 
 ## Suggestions, insights and recovery (M4 source)
 
@@ -121,3 +285,56 @@ entity and key if its queue row was removed, and conservatively protects it as d
 Tests and shared review fixtures are authored but unrun. Actual device/accessibility validation remains M4 work.
 On 2026-10-08, the signed wardrobe Debug build succeeded and was installed and launched on the connected
 iPhone 17 Pro; its running process was confirmed. Unit/UI suites, backend flows and accessibility checks were not run.
+
+## Requests, comparison and reuse (M5 source)
+
+Both clients compare two or three refreshed engine options, showing shared/different garments, roles, reasons and
+missing coverage. Selecting an option checks current garments/versions again before opening the normal composer.
+Reuse from outfit detail refreshes the original and its current garments. Missing, archived, unavailable or pending
+pieces need explicit replacement/removal. Review plan refreshes chosen replacements and starts a new manual plan for
+the selected date/current time zone. Historical notes, wear state and snapshots are not copied into the new record.
+Saving uses the existing draft/queue path with a new entity UUID and retry key; the original outfit stays intact.
+
+Describe an outfit/search interprets up to 2000 UTF-8 bytes with the available on-device Foundation Models text model.
+Generated fields are validated and editable. Garment phrases are hints: choose real IDs from inventory, or explicitly
+ignore and acknowledge them. Unsupported conditions remain visible after applying. Search supports literal name,
+category, availability and include-archived only; richer metadata/weather/date conditions do not become hidden filters.
+Requests time out after 20 seconds and cancel on input change/dismissal/background; owner/query checks reject late results.
+
+Record a description is also available in garment Capture assistance. It uses `SFSpeechRecognizer` only when
+`supportsOnDeviceRecognition` is true, with `requiresOnDeviceRecognition` enabled. Record requests microphone/speech
+permission, streams audio without storing it, and stops after 30 seconds, interruption or leaving the foreground.
+Review/edit the captured transcript and explicitly Use reviewed transcript; this replaces text only, without interpreting
+or saving automatically. Unavailable language/assets/permissions leave typing accessible; no network fallback or asset
+installer is added. The iOS 17 deployment floor is retained.
+
+`WardrobeAssistanceTests` adds bounded/mixed-mode interpretation, transcript source/account checks, real candidate
+comparison, new-plan identity/snapshot preservation, unavailable/service distinction and late-owner rejection.
+Tests are authored, unrun. On 2026-10-08, the signed M5 Debug app build succeeded, installation and launch succeeded
+on the connected iPhone 17 Pro, and its running process was confirmed. Speech/model accuracy, permission UX, offline
+recognition, accessibility and energy/latency still require hardware verification; backend flows were not exercised.
+
+## Photo entry, review and system actions (M6 source)
+
+Wardrobe → Add from photos stores up to 20 normalized source photos in the private account/endpoint draft scope
+(10 per picker selection, 12 MiB each, 256 MiB folder budget). Review a garment per photo or confirm an existing item;
+save the garment, accept its photo, and finish only after attachment acknowledgement. Pause/relaunch resumes in this
+screen or Pending saves. Imports preserve original create payloads/keys and chosen media IDs before acceptance;
+ordinary draft/photo queues handle rejection, conflict and upload retry. Later edits require fresh selected-field
+recovery. Explicit removal leaves accepted work running and an unaccepted photo draft available in Pending saves.
+Changed bytes or corrupt manifests are preserved with a recovery error. Old unreferenced import sources have a one-day
+grace period and are pruned only with readable intent.
+
+Check for similar items uses Vision feature-print revision 2, on demand, against up to 40 loaded garments with cached
+primary thumbnails / 16 MiB. Missing photos and other inventory pages are disclosed. No comparison downloads, feature
+index, cloud fallback, confidence score or auto-merge is added. The three closest photo/name hints need owner review;
+fresh version/photo checks precede Use existing. Cancellation/dismissal and a 20-second timeout fence results.
+
+History → Wardrobe review validates selected-period server counts/category totals and opens paginated source outfits,
+using saved snapshot names. Counts and record pages show separate cached/error states. No causal explanation is generated.
+Siri/Shortcuts Add garment, Search wardrobe and Today's outfits use App Intents with device authentication and the shared
+entry point behind Clerk/onboarding. They only open the normal UI; search text is bounded to 100 UTF-8 bytes. iOS 17
+support is retained. `WardrobeM6Tests` covers entry gating/parsing, factual counts, private import recovery, corruption,
+stable photo handoff and cache-only comparison input. These tests are authored, unrun. On 2026-10-08, the signed
+M6 Debug build succeeded, was installed over Retro and launched on the iPhone 17 Pro; the running process was
+confirmed (PID 11774). Feature flows, duplicate quality, Siri, backend integration and accessibility remain unverified.

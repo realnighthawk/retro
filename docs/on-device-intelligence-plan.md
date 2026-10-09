@@ -1,11 +1,90 @@
 # On-device intelligence for Retro and Sensei
 
 Proposed on 2026-10-08, before either client's completion begins. This extends the
-[client completion plan](client-completion-plan.md). No client implementation, model evaluation, build,
-device upgrade or deployment is part of this change.
+[client completion plan](client-completion-plan.md). Source implementation progress is recorded below;
+model evaluation and device validation remain deferred.
 
 The [Retro feature roadmap](retro-feature-roadmap.md) is the current Retro-only release scope, including the full
 initial capture assistance and follow-up requests, voice, search, duplicate hints, summaries and system actions.
+
+The [next-feature checklist and agent responsibilities](retro-feature-checklist.md) records the owner's later
+requirement for an agent endpoint with access to user data and supporting connections. On-device processing remains
+preferred for suitable local work; the agent can gather context, orchestrate tools and offload heavier reasoning or
+image jobs for the next features. The local-only/no-cloud paths below describe M3–M6 implementation, not a restriction
+on the expanded requirements. The generic iOS/gateway MCP loop is now in source; specialist agent capabilities
+and live try-on rendering integration are still pending.
+
+## Apple-first allocation for the next Retro features
+
+P1 source now implements typed preference/care/feedback proposals and an authenticated read-only Foundation Models
+tool over `wardrobe_context_get`. Editor-scoped records, source-version checks, byte/call limits, cancellation,
+account fencing and reviewed durable saving are documented in the [agent boundary](retro-agent-contract.md).
+Today → Ask Retro additionally uses Apple's native model/tool loop with optional query-only MCP delegation to
+the remote agent. A thin controller owns budgets, durable request IDs, polling, cancellation, native owner input
+and account fencing. Connected help defaults off; generic remote evidence remains distinct from typed domain facts.
+P2.1 now supplies deterministic preference/explicit-rating candidates, on-open Today choices and role-preserving
+swaps. P2.2 adds shared daily selections and saved pairings with native reviewed planning and durable saves.
+P2.3 adds the read-only `read_outfit_choices` tool and guided candidate comparison/swap proposals to that same native
+loop, with bounded source aliases, full engine evidence in review and no automatic writes. Optional MCP delegation
+keeps its existing recovery/owner-input rules. P2.4 adds `read_outfit_context`: source-linked provider facts for the
+fixed date/timezone and explicit location, with bounded model aliases, freshness/coverage and reviewed warmth/occasion
+refinements. Native retrieval/manual controls work without Apple Intelligence; generic agent prose is not factual
+context and requests do not create new remote permission grants. P2.5 uses the existing headless Temporal agent
+wake for generation while the phone sleeps, with durable engine snapshots and one authorized connected delivery
+attempt. Native settings/status/recovery work without Apple Intelligence; its interactive model roles remain local.
+Provider-specific delivery guarantees and broader automatic weather rules remain open. The prior M3–M6 helpers
+retain their feature scopes. New client work is iOS only.
+
+P3.1 adds deterministic compatible laundry groups and native editable loads/progress/history. The existing local
+care text/OCR assistant remains available from blocked items; confirmed facts and programme restrictions are
+validated by the engine. Manual programme selection, presets and confirmation work without Apple Intelligence.
+P3.2 now adds guided laundry request interpretation and a direct local care-label OCR/review path. Explicit Celsius
+values require request/label excerpts; named presets map to native aliases and are refreshed before applying.
+Unknown temperatures, symbols, missing instructions and unsupported conditions stay in manual review. Applying
+changes only forms; care confirmation, fresh compatible piece selection and durable saves remain ordinary native work.
+OCR works without Apple Intelligence, while drafting follows the existing iOS 26/device/model/locale gate. Programme
+interpretation needs no remote tool. P3.3 now derives date-based wears since completed cleaning and opt-in in-app
+review thresholds in engine code, with distinct same-day ambiguity and unknown baselines. Native care/availability/
+load/reminder review, owner/source checks and durable saves need no Apple model. The model never calculates or resets
+usage/cleaning counts or infers dirtiness. P3.4 now adds the local Apple tool loop over fresh compatible pieces and
+bounded upcoming saved outfits, optional generic `ask_agent` MCP batch proposals and provider-pointer calendar/travel
+context for the need-by day. Native aliases bind exact source versions and deterministic group/date checks. A direct
+connected planner works without Apple Intelligence; review refreshes sources before changing only the load form.
+No model care/duration/capacity/readiness inference, automatic saves/progress, PCC or notification delivery is added.
+
+The owner confirmed that the [feature checklist](retro-feature-checklist.md) should use Apple Intelligence as much
+as practical. Apple Private Cloud Compute is excluded. Remote work uses the already planned agent endpoint.
+
+Use Foundation Models for bounded interactive language tasks: interpret outfit/search/swap requests, extract
+explicit preferences/feedback and evidence-backed label/receipt fields, compare engine-supplied candidates and
+explain authoritative usage summaries. Extend the existing feature-specific helpers and bounded native tool loop;
+Foundation Models owns the reasoning loop. Guided generation constrains shape; ordinary validation still checks facts, IDs and dates.
+
+Small read-only Foundation Models tools can expose existing inventory/candidate/summary API methods and relevant
+agent-provided forecast/calendar/travel facts. The model stays on-device even when its tools fetch network data.
+Select bounded records with source/coverage metadata; do not place credentials or an entire user-data dump into
+the prompt. Versioned/idempotent saving remains ordinary app/engine work, including authorized background jobs.
+
+Vision OCR/cutouts/similarity, local speech and native pose/person masks handle their respective local tasks.
+These frameworks are distinct from Apple Intelligence. Direct Foundation Models image proposals require suitable
+compiled SDK/OS/model/device support; the current M3–M6 SDK path stays text-only. Care facts require readable evidence
+or owner input. Laundry compatibility, statistics and financial arithmetic remain deterministic code/engine work.
+
+For live try-on, prefer native tracking and evaluate a purpose-built Core ML/Metal or suitable native renderer;
+ARKit requires a compatible device/camera configuration. The language model can interpret swaps and explain options,
+but is not a per-frame garment renderer. The agent can prepare assets or invoke specialist processing when local
+capabilities are insufficient. A generated still does not complete the required live-camera experience.
+
+Use the agent for connected context, scheduled generation/delivery, heavy analysis and unavailable specialist tools.
+Do not run both model routes on every request. Keep capability/readiness/language checks, bounded context, cancellation,
+late-result rejection and manual/rule-based fallback. Preserve locally scoped voice/camera processing rather than
+silently sending it remotely. App Intents reuse normal auth/UI/save paths. Android shares the domain contract and
+can use the existing agent without an Apple API dependency.
+
+The checklist assigns these roles across all N01–N12 features and records outstanding implementation tasks.
+Apple's [Foundation Models introduction](https://developer.apple.com/videos/play/wwdc2025/286/) describes on-device
+guided generation/tool calling, and its [image-understanding session](https://developer.apple.com/videos/play/wwdc2026/237/)
+describes newer image APIs. These are planning inputs, not evidence of compatibility with the currently installed SDK.
 
 ## Current implementation
 
@@ -18,14 +97,45 @@ are bounded and the UI cancels suggestions after 20 seconds. Label photos are no
 The installed SDK's Foundation Models Swift interface has no image attachment declarations. R1 direct image prompting
 remains pending a suitable SDK and hardware evaluation; current text extraction never claims to inspect garment pixels.
 Cutouts preview up to six foreground subjects and retain the original as fallback; colour sampling is still pending.
-Both native clients implement manual photo storage/management. Android local inference, speech, intents and R3/R4 remain
-later work. These M3 source changes and authored tests have not been built, run or evaluated on hardware.
+Both native clients implement manual photo storage/management. Android local inference/speech remain
+later work. The M5 iOS build/install/launch succeeded on 2026-10-08; suites and intelligence evaluation remain unrun.
+
+M5 implements R3-style typed outfit requests and natural-language search with guided text generation, validated editable
+fields, real garment selection and explicit unsupported-condition review. Input is capped at 2000 UTF-8 bytes; generation
+has a 20-second UI timeout. Applying changes only ordinary controls; candidates and saving remain engine/queue work.
+Candidate comparison uses engine reasons and actual supplied pieces deterministically on both platforms, without a
+second model explanation or automatic ranking. Past-outfit reuse creates a new reviewed plan and preserves history.
+
+Optional voice uses the existing iOS 17-compatible `SFSpeechRecognizer` API with local-only capability checks and
+`requiresOnDeviceRecognition`, rather than requiring a new transcription runtime. Permissions are requested on Record;
+unsupported locale/assets or a local recognition error lead to typing, with no remote fallback. Audio is streamed and
+never written to a file. Recording is bounded to 30 seconds and transcripts must be reviewed before insertion; input,
+owner and foreground checks prevent late application. No speech-asset installer is added. M5 source and focused tests
+are authored. The signed M5 iOS app build/install/launch passed; tests, permissions/airplane-mode behavior, inference
+quality, accessibility and hardware budgets remain unverified.
+
+M6 source adds explicit on-device Vision revision-2 feature-print comparison of cached primary thumbnails on iOS
+(up to forty loaded garments / 16 MiB, three closest photo/name hints, 20-second UI timeout). Missing thumbnails,
+other pages and limits are disclosed. Results are ephemeral; no index or feature prints survive revisions. Comparison
+does not download or send images to inference. Similarity is an owner-review hint, with no confidence threshold or
+auto-merge; choosing an existing item requires fresh active/version/photo checks and confirmation. Android uses manual
+existing-item selection. Quality and latency remain hardware validation work.
+
+Both clients provide bounded, private, resumable multi-photo entry through per-item drafts and existing idempotent
+garment/photo queues. Normalized bytes and immutable identities persist before upload acceptance; later edits must be
+reviewed before completion. Period reviews are deterministic validated server counts linked to paginated confirmed
+outfit snapshots, not generated explanations. iOS App Intents require device authentication and open the shared
+authenticated/onboarded UI for Add/Search/Today; Android has equivalent launcher shortcuts. No system action saves,
+returns wardrobe facts to Siri or bypasses normal review. The signed M6 iOS Debug build/install/launch passed on
+2026-10-08 on the iPhone 17 Pro and its running process was confirmed. Suites, Android builds/deployment, full
+intelligence/feature/integration flows and system-action/accessibility evaluation remain pending.
 
 ## Recommendation
 
-Use Apple's on-device models to understand input and produce editable drafts. Ordinary code and engine operations
-own dates, counts, eligibility, conflicts and saving. Start with garment entry in Retro and task capture in Sensei;
-these remove repetitive work without needing a general chatbot.
+Use Apple's on-device models for suitable input interpretation, editable drafts and explanations of validated
+results. Read-only tools can supply engine facts and agent-connected context. Ordinary code and engine operations
+own dates, counts, eligibility, conflicts and saving; the existing agent handles scheduled/heavier work. Start with
+garment entry in Retro and task capture in Sensei, then the checklist's local-first outfit and laundry flows.
 
 Manual entry and rule-based wardrobe suggestions remain complete features on older iPhones and Android. Accepted
 records still sync through the authenticated router, and chosen garment photos still go to private MinIO.
@@ -40,7 +150,7 @@ records still sync through the authenticated router, and chosen garment photos s
 | Vision OCR | Read labels or photographed task lists | Local image processing; separate from Foundation Models availability |
 | Vision foreground instance masks | Optional garment cutout preview | A foreground mask is not garment recognition; owner chooses the subject |
 | Core Image / ordinary image processing | Orientation, masked colour sampling, crop and export | No LLM needed; lighting/background can distort observed colours |
-| SpeechAnalyzer / SpeechTranscriber | Explicit voice capture | iOS 26+; independently check supported hardware, locale and downloaded speech assets |
+| SFSpeechRecognizer (M5); SpeechAnalyzer / SpeechTranscriber later if needed | Explicit voice capture with reviewed transcript | Local-only support/assets gate; current API retains iOS 17 compatibility |
 | App Intents / App Shortcuts | Open capture, search inventory, open today's board | System integration; do not promise Siri's entire execution is on-device |
 | Vision image feature prints | Later possible-duplicate photo suggestions | Similarity only; no automatic merging |
 
@@ -53,7 +163,9 @@ allowlist or assume an eligible OS means the model is ready.
 Vision supplies [on-device OCR](https://developer.apple.com/documentation/vision/recognizing-text-in-images),
 [foreground masks](https://developer.apple.com/documentation/vision/vngenerateforegroundinstancemaskrequest), and
 [image similarity](https://developer.apple.com/documentation/vision/analyzing-image-similarity-with-feature-print).
-Apple's [SpeechAnalyzer introduction](https://developer.apple.com/videos/play/wwdc2025/277/) describes local transcription
+Apple's [local-only recognition setting](https://developer.apple.com/documentation/speech/sfspeechrecognitionrequest/requiresondevicerecognition)
+and [device-support check](https://developer.apple.com/documentation/speech/sfspeechrecognizer/supportsondevicerecognition)
+are both applied before recording. Apple's [SpeechAnalyzer introduction](https://developer.apple.com/videos/play/wwdc2025/277/) describes local transcription
 and asset installation; [App Intents](https://developer.apple.com/documentation/appintents/creating-your-first-app-intent)
 make app actions available to system experiences.
 
@@ -99,8 +211,9 @@ Colour sampling is a measured visual suggestion, not a guarantee of the garment'
 references against actual inventory, showing choices for ambiguity. Send supported constraints to `wardrobe_suggest`;
 use its eligible candidate IDs/versions, reasons and missing roles. Show unsupported constraints as unhandled.
 
-An optional model pass may select or explain a supplied candidate, restricted to those fingerprints and validated
-in code. Preserve backend reasons; do not invent weather, garments or fabric properties. Saving/confirming uses
+P2.3's optional model pass selects or explains supplied candidates using source-bound aliases validated against their
+fingerprints/versions in code. It can identify one unlocked piece to swap, preserving every other piece and original
+exclusions. Full backend reasons remain separate from model commentary; do not invent weather, garments or fabric properties. Saving/confirming uses
 the ordinary reviewed, versioned and idempotent outfit operations. Rule-based suggestions remain the fallback.
 
 ### R4: Later history and duplicate assistance
@@ -141,10 +254,16 @@ flowchart LR
 - Add small feature-specific iOS helpers, not a shared agent runtime or intelligence backend. Keep generative draft
   types separate from authoritative DTOs. Apple's [guided generation](https://developer.apple.com/documentation/foundationmodels/generating-swift-data-structures-with-guided-generation)
   constrains shape, not factual correctness. Validate IDs, enums, references, lengths and dates before applying a draft.
-- Explicitly select the on-device system model. Private Cloud Compute and third-party providers are outside this plan;
-  failures do not trigger cloud fallback. System Siri/Writing Tools behavior is outside our local-inference guarantee.
-- Start with bounded input snapshots and no model tools. If retrieval later needs [tool calling](https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling),
-  expose only read-only cached queries with strict limits. No generic HTTP/MCP or mutation tools.
+- Explicitly select the on-device system model for local helpers; Private Cloud Compute is excluded. Remote tasks
+  use the existing agent as a separate, identified route rather than silently replacing local inference. System
+  Siri/Writing Tools behavior is outside our local-inference guarantee.
+- M3–M6 uses bounded snapshots without model tools. P1 adds small
+  [read-only tools](https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling)
+  over ordinary authenticated APIs, with strict limits and coverage/source metadata.
+  The assistant also exposes one optional query-only `ask_agent` tool over gateway
+  MCP. The model cannot choose HTTP URLs, IDs, polling/cancel controls or owner approval responses. The remote agent
+  keeps its configured tool permissions; future feature adapters must validate specialist facts and enforce their
+  actual permission scope. The local model cannot directly commit wardrobe records.
 - OCR/notes/journal text is data, not instructions. Models cannot expand permissions, fetch arbitrary URLs or commit
   records. Keep authentication tokens out of prompts.
 - Use short feature-specific sessions, one generation at a time per session. Budget input, schema and output for the
@@ -153,8 +272,8 @@ flowchart LR
   checksum and prompt/model version. No global transcript; production logs contain timings/error categories, not content.
 - Initially run foreground requests only, with progress, Cancel and manual entry accessible. No full-library scan or
   automatic regeneration on every keystroke. Handle model-not-ready, refusal, context overflow and resource failures.
-- Custom voice capture checks local speech support and installs assets with visible progress. Use local recognition
-  only, never a silent network fallback; typing remains available. Discard raw audio after transcription unless
+- Custom voice capture checks local speech support. M5 uses already available local assets; missing assets keep typing
+  available. Any future asset installer must show progress. Use local recognition only, never a silent network fallback. Discard raw audio after transcription unless
   deliberately retained. Request microphone/speech permissions at capture time, not onboarding.
 - Only accepted fields and chosen photos follow normal sync. Raw prompts, alternatives, label scans and audio remain
   local by default. Saving AI-assisted drafts has exactly the same offline queue, conflicts and account guards as manual entry.
@@ -168,8 +287,9 @@ or claim a pending wear is confirmed. Do not automatically donate private journa
 an explicit scope, per-account deletion and version handling; declaring an intent is not access to every private record.
 
 Apple Intelligence APIs are not available on Android. Keep record/sync and manual/core parity while permitting iOS
-assistance. Android local OCR, speech and generative-model options need their own evaluation; do not introduce cloud
-inference merely to make buttons identical. No cross-platform model abstraction or bundled LLM in this first plan.
+assistance. Android local OCR, speech and generative-model options need their own evaluation; the next checklist can
+reuse the existing agent for suitable remote assistance. No separate cloud provider, cross-platform model abstraction
+or bundled LLM is needed merely to make buttons identical.
 
 ## Delivery changes
 

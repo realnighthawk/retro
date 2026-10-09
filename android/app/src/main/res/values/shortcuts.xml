@@ -1,0 +1,5 @@
+<resources>
+    <string name="shortcut_add">Add garment</string>
+    <string name="shortcut_search">Search wardrobe</string>
+    <string name="shortcut_today">Today\'s outfits</string>
+</resources>

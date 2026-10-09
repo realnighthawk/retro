@@ -1,0 +1,20 @@
+{
+  "preferences": {
+    "id": "971d5190-0ce2-4aaf-aa0a-753c3dde8fc9",
+    "version": 9007199254740993,
+    "updated_at": "2026-10-09T12:00:00Z",
+    "preferred_colours": ["sage"],
+    "avoided_colours": [],
+    "preferred_styles": ["casual"],
+    "default_occasion": "",
+    "temperature_unit": "celsius",
+    "temperature_sensitivity": "normal",
+    "cold_threshold_c": 10,
+    "hot_threshold_c": 25,
+    "layering_preference": "moderate",
+    "avoid_repeat_days": 0,
+    "prefer_underused_items": false,
+    "variety": "moderate",
+    "machine_presets": [{"id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "name": "Cold wash", "temperature_c": 0, "cycle": "gentle", "drying": "line"}]
+  }
+}

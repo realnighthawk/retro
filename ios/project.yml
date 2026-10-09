@@ -28,6 +28,8 @@ targets:
       properties:
         CFBundleDisplayName: Retro
         NSCameraUsageDescription: Photograph garments you choose to add to your wardrobe.
+        NSMicrophoneUsageDescription: Record descriptions you choose to transcribe on this device.
+        NSSpeechRecognitionUsageDescription: Transcribe wardrobe descriptions on this device for your review.
         # Same Clerk instance and router as AutoTelemetry and Treasure. The publishable key is public by design.
         RouterBaseURL: https://harness-router.nighthawklabs.org
         ClerkPublishableKey: pk_live_Y2xlcmsubmlnaHRoYXdrbGFicy5vcmck

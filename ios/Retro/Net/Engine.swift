@@ -10,6 +10,7 @@ final class Engine {
     let owner: String
     var isCurrentOwner: Bool { currentUser() == owner }
     var cacheScope: String { api.baseURL }
+    var gatewayScope: String { router.baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/gateway/mcp" }
 
     private let api: RetroAPI
     private let router: RetroAPI
@@ -72,7 +73,7 @@ final class Engine {
         return await authenticated { await self.router.request("POST", "/onboard", body: body, token: $0) }
     }
 
-    private func authenticated<Out>(_ send: (String) async -> Api<Out>) async -> Api<Out> {
+    func authenticated<Out>(_ send: (String) async -> Api<Out>) async -> Api<Out> {
         guard currentUser() == owner else { return .unauthorized }
         guard let sessionToken = await token(false), currentUser() == owner else { return .unauthorized }
 

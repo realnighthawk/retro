@@ -23,6 +23,7 @@ final class WardrobeStore {
     let writes: WardrobeWrites
     let photos: WardrobePhotos
     let drafts: WardrobeSavedDrafts
+    let assistant: WardrobeAssistant
     var isCurrentOwner: Bool { engine.isCurrentOwner }
     var changes: Int { writes.acknowledgements }
     private let engine: Engine
@@ -42,9 +43,12 @@ final class WardrobeStore {
         self.writes = writes
         photos = WardrobePhotos(engine: engine, writes: writes)
         drafts = WardrobeSavedDrafts(engine: engine)
+        assistant = WardrobeAssistant(engine: engine)
     }
 
     func sync(force: Bool = false) async {
+        // Best-effort stops must not delay ordinary wardrobe saves or refreshes.
+        Task { await assistant.requests.retryCancellations() }
         var changed = await writes.drain(force: force)
         await photos.step()
         if await writes.drain() { changed = true }
@@ -55,16 +59,53 @@ final class WardrobeStore {
         if let selectedDay { await refreshDay(selectedDay) }
     }
 
-    func submit(_ operation: String, entity: String, title: String, fields: [String: Any], context: String? = nil) throws {
+    @discardableResult func submit(_ operation: String, entity: String, title: String, fields: [String: Any], context: String? = nil) throws -> WardrobePending {
         try writes.enqueue(operation: operation, entity: entity, title: title, fields: fields, context: context)
+        let accepted = writes.items.first { $0.entity == entity }!
         Task { await sync() }
+        return accepted
     }
 
     func choices(_ query: WardrobeInventoryQuery) async -> Api<WardrobePage<WardrobeGarment>> {
         await engine.call("garments_list", query)
     }
+    func context(_ input: WardrobeContextInput) async -> Api<WardrobeContext> {
+        await engine.call("wardrobe_context_get", input)
+    }
 
     func currentSummary(_ item: WardrobePending) async -> String {
+        if item.operation.hasPrefix("laundry_") {
+            let result: Api<WardrobeLaundryResult> = await engine.call("laundry_get", WardrobeID(id: item.entity))
+            if case .ok(let r) = result { return "Current laundry: \(r.load.name) · \(r.load.stateTitle) · version \(r.load.version)\n\(r.load.program.summary)\nReview current progress before another confirmation." }
+            return result.problem ?? "Could not load the current laundry record."
+        }
+        if item.operation == "wardrobe_daily_settings_update" {
+            let result: Api<WardrobeDailySettingsResult> = await engine.call("wardrobe_daily_settings_get", WardrobeEmpty())
+            if case .ok(let r) = result { return "Current daily automation · version \(r.settings.version). Review latest record to compare the saved fields; agent wake status is separate." }
+            return result.problem ?? "Could not load daily settings."
+        }
+        if item.operation == "wardrobe_day_selection_update" {
+            guard let body = try? JSONSerialization.jsonObject(with: item.body) as? [String: Any], let day = body["day"] as? String else { return "Missing daily selection date." }
+            let result: Api<WardrobeDay> = await engine.call("wardrobe_day_get", WardrobeDayQuery(day: day))
+            if case .ok(let r) = result, let selection = r.selection { return "Current choice for \(day): \(selection.outfit?.title ?? "None") · version \(selection.version). \(selection.problem ?? "")" }
+            return result.problem ?? "Could not load the daily selection."
+        }
+        if item.operation.hasPrefix("pairings_") {
+            let result: Api<WardrobePairingResult> = await engine.call("pairings_get", WardrobeID(id: item.entity))
+            if case .ok(let r) = result { return "Current pairing: \(r.pairing.name) · version \(r.pairing.version)\nPieces: \(r.pairing.items.map { $0.snapshot?.name ?? $0.garmentID }.joined(separator: ", "))" }
+            return result.problem ?? "Could not load the pairing."
+        }
+        if item.operation == "preferences_update" {
+            let result: Api<WardrobePreferencesResult> = await engine.call("preferences_get", WardrobeEmpty())
+            if case .ok(let r) = result { return "Current wardrobe settings · version \(r.preferences.version). Review latest record to compare the saved fields." }
+            return result.problem ?? "Could not load settings."
+        }
+        if item.operation == "outfits_feedback_update" {
+            guard let body = try? JSONSerialization.jsonObject(with: item.body) as? [String: Any], let id = body["outfit_id"] as? String else { return "Missing outfit identity." }
+            let result: Api<WardrobeFeedbackResult> = await engine.call("outfits_feedback_get", WardrobeID(id: id))
+            if case .ok(let r) = result { return "Current feedback · version \(r.feedback.version) · \(r.outfit_state). Review latest record to compare feedback and the current wear." }
+            return result.problem ?? "Could not load feedback."
+        }
         if item.operation.hasPrefix("garments_") {
             let result: Api<WardrobeGarmentResult> = await engine.call("garments_get", WardrobeID(id: item.entity))
             if case .ok(let result) = result {
@@ -200,12 +241,23 @@ final class WardrobeStore {
 
     func reviewSuggestion(_ suggestion: WardrobeSuggestion, query: WardrobeSuggestQuery) async throws -> WardrobeOutfitDraft {
         try query.validate()
+        guard engine.isCurrentOwner else { throw WardrobeWriteError("Sign in again before reviewing this suggestion.") }
         guard (1...30).contains(suggestion.items.count), Set(suggestion.items.map(\.garmentID)).count == suggestion.items.count,
               Set(query.requiredIDs).isSubset(of: Set(suggestion.items.map(\.garmentID))),
               Set(query.excludedIDs).isDisjoint(with: suggestion.items.map(\.garmentID)),
               !query.excludedCombinations.contains(suggestion.fingerprint) else { throw WardrobeWriteError("This suggestion does not match the requested pieces. Generate again.") }
         var draft = WardrobeOutfitDraft(date: WardrobeDraftValidation.date(query.day) ?? Date())
         draft.source = "suggestion"; draft.occasion = query.occasion
+        if query.expectedPreferencesVersion != nil {
+            var check = query; check.requiredIDs = suggestion.items.map(\.garmentID); check.variant = 0; check.swapRole = nil
+            let result: Api<WardrobeSuggestions> = await engine.call("wardrobe_suggest", check)
+            try Task.checkCancellation()
+            guard engine.isCurrentOwner, case .ok(let current) = result else { throw WardrobeWriteError(result.problem ?? "Could not recheck current ranking constraints.") }
+            _ = try current.reviewQuery(check)
+            guard current.items.contains(where: { $0.fingerprint == suggestion.fingerprint && $0.items.allSatisfy({ item in suggestion.items.contains { $0.garmentID == item.garmentID && $0.role == item.role && $0.version == item.version } }) }) else {
+                throw WardrobeWriteError("Availability, wear history or ranking context changed. Generate fresh choices.")
+            }
+        }
         for item in suggestion.items {
             guard WardrobeMediaPath.path(id: item.garmentID) != nil, WardrobeDraftValidation.roles.contains(item.role), !writes.contains(item.garmentID) else { throw WardrobeWriteError("Resolve the pieces' pending saves and generate again.") }
             let result: Api<WardrobeGarmentResult> = await engine.call("garments_get", WardrobeID(id: item.garmentID))
@@ -216,10 +268,13 @@ final class WardrobeStore {
             guard garment.id == item.garmentID, garment.version == item.version, garment.archivedAt == nil, garment.availability == "ready" else { throw WardrobeWriteError("A suggested piece changed or is unavailable. Generate fresh suggestions.") }
             draft.items.append(WardrobeSelection(id: garment.id, name: garment.name, role: item.role))
         }
+        guard !draft.items.contains(where: { writes.contains($0.id) }) else { throw WardrobeWriteError("Resolve the pieces' pending saves and generate again.") }
+        _ = try draft.fields()
         return draft
     }
 
     func reuseOutfit(_ id: String) async throws -> WardrobeReuseReview {
+        guard WardrobeMediaPath.path(id: id) != nil else { throw WardrobeWriteError("Invalid original outfit identity.") }
         guard engine.isCurrentOwner, !writes.contains(id) else { throw WardrobeWriteError("Wait for the original outfit's pending save before reusing it.") }
         let result: Api<WardrobeOutfitResult> = await engine.call("outfits_get", WardrobeID(id: id))
         try Task.checkCancellation()
@@ -237,7 +292,7 @@ final class WardrobeStore {
                 guard garment.id == item.garmentID else { throw WardrobeWriteError("The current garment does not match the original piece.") }
                 let problem = writes.contains(garment.id) ? "Pending save" : garment.archivedAt != nil ? "Archived" : garment.availability != "ready" ? WardrobeVocabulary.title(garment.availability) : nil
                 pieces.append(WardrobeReusePiece(id: garment.id, name: garment.name, role: item.role, problem: problem))
-            } else if case .failed("not_found", _) = current {
+            } else if case .failed(let code, _) = current, code == "not_found" {
                 pieces.append(WardrobeReusePiece(id: item.garmentID, name: item.snapshot?.name ?? "Missing garment", role: item.role, problem: "No longer available"))
             } else { throw WardrobeWriteError(current.problem ?? "Could not refresh an original piece. Try again when connected.") }
         }
@@ -245,6 +300,9 @@ final class WardrobeStore {
         return WardrobeReuseReview(outfit: outfit, pieces: pieces)
     }
     func refreshReusePlan(_ draft: WardrobeOutfitDraft) async throws -> WardrobeOutfitDraft {
+        guard engine.isCurrentOwner else { throw WardrobeWriteError("Sign in again before composing this plan.") }
+        guard draft.state == "planned", draft.source == "manual" else { throw WardrobeWriteError("Reuse starts a new manual plan. Review its pieces first.") }
+        _ = try draft.fields()
         var draft = draft
         for index in draft.items.indices {
             let item = draft.items[index]
@@ -255,7 +313,7 @@ final class WardrobeStore {
                   current.garment.availability == "ready", !writes.contains(item.id) else { throw WardrobeWriteError("\(item.name) changed or could not be refreshed. Review the pieces again.") }
             draft.items[index].name = current.garment.name
         }
-        _ = try draft.fields()
+        guard !draft.items.contains(where: { writes.contains($0.id) }) else { throw WardrobeWriteError("A piece has a pending save. Review the pieces again.") }
         return draft
     }
 

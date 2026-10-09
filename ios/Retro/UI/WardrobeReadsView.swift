@@ -1,9 +1,15 @@
 import SwiftUI
+import UIKit
 
 struct WardrobeTodayView: View {
     let store: WardrobeStore
     @State private var date = Date()
     @State private var composing = false
+    @State private var asking = false
+    @State private var choosing: WardrobeDayChoiceRequest?
+    @State private var dailyRefresh = 0
+    @State private var lastLocalDay = WardrobeVocabulary.dayKey(Date())
+    @Environment(\.scenePhase) private var scenePhase
     private var dayKey: String { WardrobeVocabulary.dayKey(date) }
 
     var body: some View {
@@ -11,26 +17,55 @@ struct WardrobeTodayView: View {
             VStack(alignment: .leading, spacing: 18) {
                 DatePicker("Outfits for", selection: $date, displayedComponents: .date)
                     .datePickerStyle(.compact).frame(minHeight: 44)
-                NavigationLink("Suggest an outfit") { WardrobeSuggestionsView(store: store, day: dayKey) }.frame(minHeight: 44)
+                Button { asking = true } label: { Label("Ask Retro", systemImage: "sparkles") }.frame(minHeight: 44)
                 WardrobeReadStatus(state: store.day) { await store.refreshDay(dayKey) }
                 if let day = store.day.value {
+                    if let selection = day.selection, let outfit = selection.outfit {
+                        SectionTitle(text: "Selected for this day")
+                        NavigationLink { WardrobeOutfitDetail(store: store, initial: outfit) } label: { WardrobeOutfitCard(outfit: outfit) }.buttonStyle(.plain)
+                        if let problem = selection.problem { Text(problem).font(.footnote).foregroundStyle(Tok.stamp) }
+                        Text(outfit.state == "worn" ? "Your selected outfit has a recorded wear." : "Your selected plan stays here when suggestions refresh. Record wear separately.").font(.footnote)
+                        if outfit.state == "planned", outfit.day == day.day {
+                            Button("Review daily choice again") { choosing = WardrobeDayChoiceRequest(day: day.day, outfitID: outfit.id) }.frame(minHeight: 44).disabled(store.day.loading || store.day.cached || store.writes.contains(selection.id) || store.writes.contains(outfit.id))
+                        }
+                        Button("Clear daily selection") { choosing = WardrobeDayChoiceRequest(day: day.day, outfitID: nil) }.frame(minHeight: 44).disabled(store.day.loading || store.day.cached || store.writes.contains(selection.id))
+                    }
+                    if let selection = day.selection, selection.version > 0 {
+                        if store.writes.contains(selection.id) { Text("Daily choice save pending. Check Pending saves for acknowledgement.").font(.footnote) }
+                        NavigationLink("Daily choice history") { WardrobeAuditView(store: store, entityType: "day_selection", id: selection.id) }.frame(minHeight: 44)
+                    }
                     if day.outfits.isEmpty {
                         WardrobeEmpty(title: "No outfits for this date", message: "Planned and recorded outfits appear here.", symbol: "hanger")
                     }
-                    ForEach(day.outfits) { outfit in
+                    ForEach(day.outfits.filter { $0.id != day.selection?.outfitID }) { outfit in
                         NavigationLink {
                             WardrobeOutfitDetail(store: store, initial: outfit)
                         } label: { WardrobeOutfitCard(outfit: outfit) }
                         .buttonStyle(.plain)
+                        if outfit.state == "planned", let selection = day.selection {
+                            Button("Choose \(outfit.title) for this day") { choosing = WardrobeDayChoiceRequest(day: day.day, outfitID: outfit.id) }.frame(minHeight: 44)
+                                .disabled(store.day.loading || store.day.cached || store.writes.contains(selection.id) || store.writes.contains(outfit.id))
+                        }
                     }
                 }
+                WardrobeDailyChoicesView(store: store, day: dayKey, refresh: dailyRefresh)
             }.padding(20)
         }
         .background(Tok.bg).navigationTitle("Today")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Compose outfit") { composing = true } } }
         .sheet(isPresented: $composing) { WardrobeOutfitEditor(store: store, date: date) }
+        .sheet(isPresented: $asking) { WardrobeAssistantView(assistant: store.assistant, day: dayKey) }
+        .sheet(item: $choosing) { WardrobeDaySelectionView(store: store, day: $0.day, outfitID: $0.outfitID) }
         .task(id: dayKey) { await store.refreshDay(dayKey) }
-        .refreshable { await store.refreshDay(dayKey) }
+        .refreshable { dailyRefresh += 1; await store.refreshDay(dayKey) }
+        .onChange(of: scenePhase) { _, value in if value == .active { rollLocalDay(); dailyRefresh += 1 } }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in rollLocalDay() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in rollLocalDay(); dailyRefresh += 1 }
+    }
+    private func rollLocalDay() {
+        let today = WardrobeVocabulary.dayKey(Date())
+        if dayKey == lastLocalDay, today != lastLocalDay { date = Date() }
+        lastLocalDay = today
     }
 }
 
@@ -39,10 +74,29 @@ struct WardrobeInventoryView: View {
     @Environment(\.dynamicTypeSize) private var textSize
     @State private var query = WardrobeInventoryQuery()
     @State private var adding = false
+    @State private var importing = false
+    @State private var language: WardrobeLanguageContext?
+    @State private var unhandled: [String] = []
+
+    init(store: WardrobeStore, initialSearch: String = "") {
+        self.store = store
+        var query = WardrobeInventoryQuery(); query.search = initialSearch
+        _query = State(initialValue: query)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                NavigationLink("Saved pairings and looks") { WardrobePairingsView(store: store) }.frame(minHeight: 44)
+                NavigationLink("Laundry loads") { WardrobeLaundryView(store: store) }.frame(minHeight: 44)
+                NavigationLink("Laundry check-in") { WardrobeLaundryCheckInView(store: store) }.frame(minHeight: 44)
+                Button("Add from photos · \(store.drafts.imports.count) to review") { importing = true }.frame(minHeight: 44)
+                Button("Describe a search") { language = WardrobeLanguageContext(inventory: query) }.frame(minHeight: 44)
+                ForEach(Array(unhandled.enumerated()), id: \.offset) { _, value in Text("Not applied: " + value).font(.footnote) }
+                if query != WardrobeInventoryQuery() || !unhandled.isEmpty {
+                    Text("Name: \(query.search.isEmpty ? "Any" : query.search) · Category: \(query.category.isEmpty ? "Any" : WardrobeVocabulary.title(query.category)) · Availability: \(query.availability.isEmpty ? "Any" : WardrobeVocabulary.title(query.availability))").font(.footnote)
+                    Button("Clear search and filters") { query = WardrobeInventoryQuery(); unhandled = [] }.frame(minHeight: 44)
+                }
                 HStack {
                     Menu {
                         Picker("Category", selection: $query.category) {
@@ -86,6 +140,13 @@ struct WardrobeInventoryView: View {
         .background(Tok.bg).navigationTitle("Wardrobe")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Add garment") { adding = true } } }
         .sheet(isPresented: $adding) { WardrobeGarmentEditor(store: store) }
+        .sheet(isPresented: $importing) { WardrobeImportView(store: store) }
+        .sheet(item: $language) { context in
+            WardrobeLanguageView(store: store, context: context) { draft, _, _, limitations in
+                guard context.inventory == query else { throw WardrobeWriteError("The search filters changed. Review a fresh interpretation.") }
+                query = try draft.searchQuery(); unhandled = limitations
+            }
+        }
         .searchable(text: $query.search, prompt: "Search garment names")
         .task(id: query) { await store.refreshInventory(query, debounce: true) }
         .refreshable { await store.refreshInventory(query) }
@@ -121,6 +182,7 @@ struct WardrobeHistoryView: View {
                     Text("All").tag("")
                 }.pickerStyle(.menu).frame(minHeight: 44)
                 NavigationLink("Insights") { WardrobeInsightsView(store: store) }.frame(minHeight: 44)
+                NavigationLink("Wardrobe review") { WardrobePeriodReviewView(store: store) }.frame(minHeight: 44)
                 DisclosureGroup("Timeline filters") {
                     Toggle("Limit dates", isOn: $limited)
                     if limited {
@@ -203,6 +265,7 @@ private struct WardrobeGarmentDetail: View {
     let initial: WardrobeGarment
     @State private var read = WardrobeRead<WardrobeGarmentResult>()
     @State private var photoEditor: WardrobeGarment?
+    @State private var showingCare = false
     @State private var editing: WardrobeGarment?
     @State private var lifecycle = false
     @State private var lifecycleRecord: WardrobeGarment?
@@ -226,7 +289,11 @@ private struct WardrobeGarmentDetail: View {
                     Button(garment.archivedAt == nil ? "Archive" : "Restore") { lifecycleRecord = garment; lifecycle = true }.frame(minWidth: 44, minHeight: 44).disabled(store.writes.contains(garment.id) || read.loading)
                 }.frame(minHeight: 44)
                 if garment.archivedAt == nil { Button("Manage photos") { photoEditor = garment }.frame(minHeight: 44).disabled(read.loading) }
+                Button("Care instructions\(garment.care?.confirmed == true ? " · Reviewed" : " · Needs review")") { showingCare = true }.frame(minHeight: 44).disabled(read.loading)
                 NavigationLink("Record history") { WardrobeAuditView(store: store, entityType: "garment", id: garment.id) }.frame(minHeight: 44)
+                NavigationLink("Wash history and loads") { WardrobeLaundryView(store: store, garmentID: garment.id) }.frame(minHeight: 44)
+                NavigationLink("Wears since cleaning and reminders") { WardrobeLaundryCheckInView(store: store, garmentID: garment.id) }.frame(minHeight: 44)
+                NavigationLink("What goes with this?") { WardrobePairingsView(store: store, garment: garment) }.frame(minHeight: 44)
                 ForEach(garment.mediaIDs ?? [], id: \.self) { id in
                     WardrobeRemotePhoto(store: store, id: id, variant: "display", label: garment.name).frame(maxHeight: 280)
                 }
@@ -253,6 +320,7 @@ private struct WardrobeGarmentDetail: View {
         .background(Tok.bg).navigationTitle("Garment").navigationBarTitleDisplayMode(.inline)
         .task(id: store.changes) { await refresh() }.refreshable { await refresh() }
         .sheet(item: $photoEditor) { frozen in WardrobePhotosView(store: store, garment: frozen) }
+        .sheet(isPresented: $showingCare) { WardrobeSettingsView(store: store, record: .care(garment.id)) }
         .sheet(item: $editing) { frozen in WardrobeGarmentEditor(store: store, garment: frozen) }
         .confirmationDialog(garment.archivedAt == nil ? "Archive this garment? Existing history stays intact." : "Restore this garment?", isPresented: $lifecycle, titleVisibility: .visible) {
             let frozen = lifecycleRecord ?? garment
@@ -265,10 +333,13 @@ private struct WardrobeGarmentDetail: View {
     }
 }
 
-private struct WardrobeOutfitDetail: View {
+struct WardrobeOutfitDetail: View {
     let store: WardrobeStore
     let initial: WardrobeOutfit
     @State private var read = WardrobeRead<WardrobeOutfitResult>()
+    @State private var reusing = false
+    @State private var showingFeedback = false
+    @State private var savingPairing = false
     @State private var editing: WardrobeOutfit?
     @State private var confirming: WardrobeOutfit?
     @State private var lifecycle = false
@@ -288,6 +359,8 @@ private struct WardrobeOutfitDetail: View {
                 if let problem { Text(problem).foregroundStyle(Tok.stamp) }
                 if store.writes.contains(outfit.id) { Text("This outfit has a pending save. It is not confirmed until acknowledged.").font(.footnote) }
                 VStack(alignment: .leading) {
+                    Button("Reuse as a new plan") { reusing = true }.frame(minHeight: 44).disabled(read.loading || store.writes.contains(outfit.id))
+                    Button("Save pieces as a pairing") { savingPairing = true }.frame(minHeight: 44).disabled(read.loading || outfit.items.count < 2 || store.writes.contains(outfit.id))
                     if outfit.state != "void" { Button("Correct outfit") { editing = outfit }.frame(minHeight: 44).disabled(read.loading) }
                     if outfit.state == "planned" { Button("Record wear") { confirming = outfit }.frame(minHeight: 44).disabled(store.writes.contains(outfit.id) || read.loading) }
                     Button(outfit.state == "void" ? "Restore outfit" : "Void outfit") { lifecycleRecord = outfit; lifecycle = true }.frame(minHeight: 44).disabled(store.writes.contains(outfit.id) || read.loading)
@@ -301,6 +374,7 @@ private struct WardrobeOutfitDetail: View {
                     if let notes = outfit.notes { Text(notes).font(.body).foregroundStyle(Tok.ink) }
                 }
                 NavigationLink("Record history") { WardrobeAuditView(store: store, entityType: "outfit", id: outfit.id) }.frame(minHeight: 44)
+                Button("Outfit feedback") { showingFeedback = true }.frame(minHeight: 44).disabled(read.loading)
                 ForEach(outfit.items) { item in
                     Panel {
                         if let id = item.snapshot?.mediaIDs?.first { WardrobeRemotePhoto(store: store, id: id, variant: "display", label: item.snapshot?.name ?? "Garment photo").frame(maxHeight: 220) }
@@ -313,6 +387,9 @@ private struct WardrobeOutfitDetail: View {
         }
         .background(Tok.bg).navigationTitle("Outfit").navigationBarTitleDisplayMode(.inline)
         .task(id: store.changes) { await refresh() }.refreshable { await refresh() }
+        .sheet(isPresented: $reusing) { WardrobeReuseView(store: store, id: outfit.id) }
+        .sheet(isPresented: $savingPairing) { WardrobePairingEditor(store: store, pieces: outfit.items.map { WardrobeSelection(id: $0.garmentID, name: $0.snapshot?.name ?? "Garment", role: $0.role) }) }
+        .sheet(isPresented: $showingFeedback) { WardrobeSettingsView(store: store, record: .feedback(outfit.id)) }
         .sheet(item: $editing) { frozen in WardrobeOutfitEditor(store: store, outfit: frozen) }
         .sheet(item: $confirming) { frozen in WardrobeOutfitEditor(store: store, outfit: frozen, confirming: true) }
         .confirmationDialog(outfit.state == "void" ? "Restore this outfit and its previous state?" : "Void this outfit? Its wears will stop counting after acknowledgement.", isPresented: $lifecycle, titleVisibility: .visible) {

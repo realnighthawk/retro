@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="add_garment" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/shortcut_add">
+        <intent android:action="org.nighthawklabs.retro.ADD_GARMENT" android:targetPackage="org.nighthawklabs.retro" android:targetClass="org.nighthawklabs.retro.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="search_wardrobe" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/shortcut_search">
+        <intent android:action="org.nighthawklabs.retro.SEARCH_WARDROBE" android:targetPackage="org.nighthawklabs.retro" android:targetClass="org.nighthawklabs.retro.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="today_outfits" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/shortcut_today">
+        <intent android:action="org.nighthawklabs.retro.TODAY_OUTFITS" android:targetPackage="org.nighthawklabs.retro" android:targetClass="org.nighthawklabs.retro.MainActivity" />
+    </shortcut>
+</shortcuts>

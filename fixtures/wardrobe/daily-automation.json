@@ -1,0 +1,72 @@
+{
+  "settings": {
+    "id": "8fe141a8-c2af-435c-9e94-166b53fa4b1a",
+    "version": 9007199254740993,
+    "updated_at": "2026-10-09T13:59:00Z",
+    "enabled": true,
+    "mode": "morning",
+    "hour": 7,
+    "minute": 0,
+    "time_zone": "America/Los_Angeles",
+    "delivery_target": "fixture-only reminders list"
+  },
+  "run": {
+    "id": "6ef42116-472f-5352-b35d-15b3b72a0cc2",
+    "day": "2026-10-09",
+    "time_zone": "America/Los_Angeles",
+    "settings_version": 9007199254740993,
+    "expires_at": "2026-10-10T07:00:00Z",
+    "query": {
+      "day": "2026-10-09",
+      "expected_preferences_version": 9007199254740993,
+      "occasion": ""
+    },
+    "suggestions": {
+      "day": "2026-10-09",
+      "algorithm": "rules-v2",
+      "generated_at": "2026-10-09T14:00:00Z",
+      "items": [
+        {
+          "items": [
+            {
+              "garment_id": "11111111-1111-4111-8111-111111111111",
+              "role": "one_piece",
+              "version": 9007199254740993,
+              "name": "Renamed dress"
+            }
+          ],
+          "fingerprint": "bd7662a5eeb41614e720d477abfcb2272e19a8a70a93b7e3bc8560d44ad326e9",
+          "reasons": [
+            "Only active, ready garments are included; avoided colours and the saved repeat interval are enforced."
+          ],
+          "missing_roles": [
+            "feet"
+          ],
+          "score": 0
+        }
+      ],
+      "no_result_reason": null,
+      "effective_occasion": "",
+      "preferences_source": {
+        "entity_type": "preferences",
+        "id": "971d5190-0ce2-4aaf-aa0a-753c3dde8fc9",
+        "version": 9007199254740993,
+        "updated_at": "2026-10-08T00:00:00Z"
+      },
+      "feedback_samples": 2,
+      "feedback_coverage": "latest_2000_version_matched_rated_wears_through_requested_day",
+      "warnings": [
+        "Styles match saved formality tags only; unknown style is not inferred.",
+        "Weather, temperature sensitivity, care compatibility and scheduled delivery are not assessed."
+      ]
+    },
+    "delivery": {
+      "claim_id": "99999999-9999-4999-8999-999999999999",
+      "status": "claimed",
+      "target": "fixture-only reminders list",
+      "receipt": "",
+      "source": "",
+      "updated_at": "2026-10-09T14:00:01Z"
+    }
+  }
+}

@@ -138,7 +138,9 @@ class WardrobeWrites(
             fun hash(value: String) = MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
             val file = File(root, "retro/${hash(engine.owner)}/wardrobe-writes-${hash(engine.cacheScope)}.json")
             return WardrobeWrites(file, stillOwner, { op, body ->
-                if (op.startsWith("garments_")) engine.call<JsonObject, WardrobeGarmentResult>(op, body).map { true }
+                if (op == "preferences_update") engine.call<JsonObject, WardrobePreferencesResult>(op, body).map { true }
+                else if (op == "outfits_feedback_update") engine.call<JsonObject, WardrobeFeedbackResult>(op, body).map { true }
+                else if (op.startsWith("garments_")) engine.call<JsonObject, WardrobeGarmentResult>(op, body).map { true }
                 else engine.call<JsonObject, WardrobeOutfitResult>(op, body).map { true }
             })
         }

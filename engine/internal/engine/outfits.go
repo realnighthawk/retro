@@ -356,5 +356,6 @@ func dayGet(ctx context.Context, u *unit, in DayInput) (DayResult, error) {
 		}
 		result.Outfits = append(result.Outfits, o)
 	}
-	return result, nil
+	result.Selection, e = u.getDaySelection(ctx, in.Day)
+	return result, e
 }

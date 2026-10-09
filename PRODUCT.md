@@ -16,10 +16,18 @@ and workspace onboarding. Neither requires the other installed. Optional calenda
 without copying productivity records into Retro.
 
 The native clients now open a wardrobe-only shell with manual garment/outfit writes and durable pending saves; the earlier combined demo is preserved for Sensei.
-Private photos and optional iOS capture assistance are implemented in source; these increments have not been built/tested. Retro is the current focus; see [the Retro feature roadmap](docs/retro-feature-roadmap.md),
+Private photos, capture assistance, M5 requests/search/comparison/reuse and M6 photo entry/reviews/system actions are implemented in source. The M6 iOS
+build/install/launch succeeded; authored suites and full flows remain unverified. Retro is the current focus; see [the Retro feature roadmap](docs/retro-feature-roadmap.md),
 [the on-device intelligence plan](docs/on-device-intelligence-plan.md),
 [the wardrobe engine design](docs/wardrobe-engine-design.md) and
 [the Sensei boundary and extraction plan](docs/sensei.md).
+
+The [next-feature checklist](docs/retro-feature-checklist.md) adds daily personalized suggestions, live camera
+try-on with outfit/piece swaps and laundry load planning from confirmed care settings. A shared agent endpoint will
+have access to user data and supporting connections for context, reasoning and optional remote processing; native
+clients retain local interaction/offline behavior and the engine remains authoritative for wardrobe records.
+The owner's execution preference is Apple-first: on-device interpretation/explanation and native image/speech/tracking
+where suitable, complemented by the existing agent for connected and heavier work. Apple Private Cloud Compute is excluded.
 
 ## Platform
 
@@ -88,8 +96,12 @@ The backend implements photo-backed manual inventory, dated outfit planning/conf
 explainable rule-based suggestions, wear history, factual usage summaries and audited past-outfit corrections.
 Photos use a private MinIO endpoint, selected by the owner. Deployment-specific endpoint, bucket and credentials
 remain configuration. Native reads, manual writes, private photos and local iOS OCR/cutout/text assistance are implemented in source;
-suggestions, insights and durable form/photo/create recovery are also implemented. Direct image prompting and follow-up assistance remain pending. Client/backend verification follows
-the owner's deployment. Optional garment text drafts, OCR and cutout previews use capability-gated Apple frameworks; natural-language outfit requests remain planned; Sensei starts with reviewed task extraction. Manual flows remain
+suggestions, insights and durable form/photo/create recovery are also implemented. M5 adds optional reviewed iOS
+text/voice requests and search, plus real outfit comparison and history reuse on both clients. M6 adds private per-item
+photo imports, optional iOS cached-thumbnail similarity hints, source-linked period reviews and authenticated system
+entry points. Direct image prompting remains pending. Client/backend verification follows the owner's deployment. Optional garment text
+drafts, OCR, cutout previews, request interpretation and local speech use capability-gated Apple frameworks; Sensei
+starts with reviewed task extraction. Manual flows remain
 complete, and accepted records/photos still sync. External AI processing and notifications remain deferred.
 
 Constraint: the client must stay usable with no network — the engine is the source of truth, not a
@@ -149,4 +161,12 @@ M4 source connects rule-based suggestions, factual insights, filtered timeline a
 both clients. Garment/outfit/photo drafts survive relaunch; later edits to existing records and queued creates stay
 local until reviewed against fresh data. Known rejected creates can be corrected explicitly, and rejected field edits
 support selected-field reapplication. Photo draft acceptance and upload queuing share one atomic manifest.
-Builds/tests/runtime and device/accessibility validation remain deferred.
+M5 source adds reviewed local request/search interpretation and voice on iOS, deterministic engine-candidate comparison
+and new-plan history reuse on both clients. The M5 iOS build/install/launch passed; tests, Android builds, full runtime
+flows, intelligence behavior and accessibility validation remain deferred.
+M6 source adds resumable per-photo garment review and attachment through existing queues, optional revision-pinned
+cache-only Vision similarity hints on iOS, validated selected-period review counts linked to saved outfit facts, and
+Add/Search/Today entry points behind normal auth/onboarding (Siri/Shortcuts on iOS, launcher shortcuts on Android).
+No action automatically saves or merges. The signed M6 iOS Debug build/install/launch passed on the iPhone 17 Pro
+on 2026-10-08, with its running process confirmed. Authored suites, Android builds and full feature/integration
+validation remain unrun. Later optional features require individual scope selection.

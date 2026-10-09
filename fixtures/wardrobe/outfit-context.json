@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "request_id": "88888888-8888-4888-8888-888888888888",
+  "session_id": "mcp-fixture-88888888-8888-4888-8888-888888888888",
+  "turn_id": "agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1",
+  "status": "completed",
+  "retrieved_at": "2026-10-09T07:03:00Z",
+  "completed_at": "2026-10-09T07:03:00Z",
+  "answer": "{\"schema_version\":1,\"day\":\"2026-10-09\",\"time_zone\":\"America/Los_Angeles\",\"location\":\"San Francisco\",\"weather\":{\"status\":\"available\",\"reason\":\"\",\"items\":[{\"source_id\":\"agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1:act:weather\",\"fields\":{\"day\":\"/day\",\"time_zone\":\"/time_zone\",\"location\":\"/location\",\"temperature_min\":\"/low\",\"temperature_max\":\"/high\",\"temperature_unit\":\"/unit\",\"condition\":\"/condition\",\"issued_at\":\"/issued_at\"}}]},\"calendar\":{\"status\":\"available\",\"reason\":\"\",\"items\":[{\"source_id\":\"agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1:act:calendar\",\"fields\":{\"title\":\"/event/title\",\"start\":\"/event/start\",\"end\":\"/event/end\",\"time_zone\":\"/event/time_zone\",\"location\":\"/event/location\"}}]},\"travel\":{\"status\":\"available\",\"reason\":\"\",\"items\":[{\"source_id\":\"agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1:act:travel\",\"fields\":{\"title\":\"/trip/title\",\"start\":\"/trip/start\",\"end\":\"/trip/end\",\"time_zone\":\"/trip/time_zone\",\"location\":\"/trip/location\"}}]}}",
+  "truncated": false,
+  "coverage": "recent_top_level_tool_calls",
+  "sources": [
+    {
+      "tool_call_id": "agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1:act:weather",
+      "tool_name": "call_tool",
+      "status": "ok",
+      "result": {
+        "day": "2026-10-09",
+        "time_zone": "America/Los_Angeles",
+        "location": "San Francisco",
+        "low": 50,
+        "high": 68,
+        "unit": "fahrenheit",
+        "condition": "Light rain",
+        "issued_at": "2026-10-09T07:00:00Z",
+        "provider_version": 9007199254740993
+      },
+      "truncated": false,
+      "started_at": "2026-10-09T07:02:00Z",
+      "completed_at": "2026-10-09T07:03:00Z",
+      "server": "weather",
+      "tool": "daily_forecast"
+    },
+    {
+      "tool_call_id": "agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1:act:calendar",
+      "tool_name": "call_tool",
+      "status": "ok",
+      "result": {
+        "event": {
+          "title": "Dinner with friends",
+          "start": "2026-10-09T19:00:00-07:00",
+          "end": "2026-10-09T20:30:00-07:00",
+          "time_zone": "America/Los_Angeles",
+          "location": "San Francisco"
+        }
+      },
+      "truncated": false,
+      "started_at": "2026-10-09T07:02:00Z",
+      "completed_at": "2026-10-09T07:03:00Z",
+      "server": "calendar",
+      "tool": "events_list"
+    },
+    {
+      "tool_call_id": "agent:main:web:user:fixture-context:session:mcp-fixture-88888888-8888-4888-8888-888888888888:turn:1:act:travel",
+      "tool_name": "call_tool",
+      "status": "ok",
+      "result": {
+        "trip": {
+          "title": "Flight to Seattle",
+          "start": "2026-10-09T08:00:00-07:00",
+          "end": "2026-10-09T10:00:00-07:00",
+          "time_zone": "America/Los_Angeles",
+          "location": "Seattle"
+        }
+      },
+      "truncated": false,
+      "started_at": "2026-10-09T07:02:00Z",
+      "completed_at": "2026-10-09T07:03:00Z",
+      "server": "mail",
+      "tool": "itineraries_list"
+    }
+  ]
+}

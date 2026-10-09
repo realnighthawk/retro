@@ -26,6 +26,7 @@ data class WardrobeGarment(
     @SerialName("wear_days") val wearDays: Long,
     @SerialName("wear_events") val wearEvents: Long,
     @SerialName("last_worn_on") val lastWornOn: String? = null,
+    val care: WardrobeCare? = null,
 )
 
 @Serializable

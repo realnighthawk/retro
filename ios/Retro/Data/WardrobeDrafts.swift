@@ -98,10 +98,7 @@ struct WardrobeOutfitDraft: Codable, Equatable {
         try WardrobeDraftValidation.strings(["label": label, "occasion": occasion, "notes": notes])
         guard (timeZone == "UTC" || TimeZone.knownTimeZoneIdentifiers.contains(timeZone)), let zone = TimeZone(identifier: timeZone) else { throw WardrobeWriteError("Use an IANA time zone such as America/Los_Angeles.") }
         guard ["planned", "worn"].contains(state) else { throw WardrobeWriteError("Choose a planned or worn outfit.") }
-        guard (1...30).contains(items.count), Set(items.map(\.id)).count == items.count,
-              items.allSatisfy({ UUID(uuidString: $0.id) != nil && $0.id != "00000000-0000-0000-0000-000000000000" && WardrobeDraftValidation.roles.contains($0.role) }) else {
-            throw WardrobeWriteError("Choose 1–30 different garments and a role for each.")
-        }
+        try WardrobeDraftValidation.items(items)
         let day = WardrobeVocabulary.dayKey(date)
         guard day.count == 10 else { throw WardrobeWriteError("Choose a date between years 1 and 9999.") }
         let formatter = DateFormatter()
@@ -116,6 +113,12 @@ struct WardrobeOutfitDraft: Codable, Equatable {
 enum WardrobeDraftValidation {
     static let roles = ["base", "mid", "bottom", "one_piece", "outer", "feet", "accessory", "other"]
     static let warmths = ["unknown", "light", "mid", "warm"]
+    static func items(_ items: [WardrobeSelection]) throws {
+        guard (1...30).contains(items.count), Set(items.map(\.id)).count == items.count,
+              items.allSatisfy({ UUID(uuidString: $0.id) != nil && $0.id != "00000000-0000-0000-0000-000000000000" && roles.contains($0.role) }) else {
+            throw WardrobeWriteError("Choose 1–30 different garments and a role for each.")
+        }
+    }
     static func text(_ fields: [String: Any], _ key: String, fallback: String = "") throws -> String {
         guard let value = fields[key] else { return fallback }
         guard let value = value as? String else { throw WardrobeWriteError("Invalid queued \(key) value.") }

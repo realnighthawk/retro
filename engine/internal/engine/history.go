@@ -13,17 +13,42 @@ func history(ctx context.Context, u *unit, in HistoryInput) (Page[Change], error
 	if e != nil {
 		return result, e
 	}
-	if !oneOf(in.EntityType, "garment", "outfit", "media") {
+	if !oneOf(in.EntityType, "garment", "outfit", "media", "preferences", "feedback", "pairing", "day_selection", "daily_settings", "daily_run", "laundry_load") {
 		return result, invalid("unsupported entity_type")
 	}
 	// History is only available for an existing record.
 	switch in.EntityType {
+	case "laundry_load":
+		_, e = u.getLaundry(ctx, key)
+	case "daily_settings":
+		if key != DailySettingsID {
+			return result, notFound()
+		}
+		_, e = u.getDailySettings(ctx)
+	case "daily_run":
+		var run *DailyRun
+		run, e = u.getDailyRun(ctx, key)
+		if e == nil && run == nil {
+			return result, notFound()
+		}
 	case "garment":
 		_, e = u.getGarment(ctx, key)
 	case "outfit":
 		_, e = u.getOutfit(ctx, key)
 	case "media":
 		_, e = u.getMedia(ctx, key)
+	case "preferences":
+		if key != PreferencesID {
+			return result, notFound()
+		}
+		_, e = u.getPreferences(ctx)
+	case "feedback":
+		_, e = u.getFeedback(ctx, key)
+	case "pairing":
+		_, e = u.getPairing(ctx, key)
+	case "day_selection":
+		var day string
+		e = u.tx.QueryRow(ctx, `SELECT day::text FROM retro.day_selections WHERE id=$1`, key).Scan(&day)
 	}
 	if e != nil {
 		return result, e

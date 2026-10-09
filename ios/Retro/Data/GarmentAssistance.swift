@@ -48,15 +48,15 @@ enum GarmentAssistance {
         if #available(iOS 26.0, *) {
             let model = SystemLanguageModel.default
             switch model.availability {
-            case .available: return model.supportsLocale() ? nil : "Apple's on-device model does not support this language. Manual entry and label scanning still work."
-            case .unavailable(.deviceNotEligible): return "This device does not support Apple Intelligence. Manual entry and label scanning still work."
-            case .unavailable(.appleIntelligenceNotEnabled): return "Enable Apple Intelligence in Settings to suggest details. Manual entry and label scanning still work."
-            case .unavailable(.modelNotReady): return "Apple's on-device model is not ready. Manual entry and label scanning still work."
-            default: return "On-device suggestions are unavailable. Manual entry and label scanning still work."
+            case .available: return model.supportsLocale() ? nil : "Apple's on-device model does not support this language. Manual entry still works."
+            case .unavailable(.deviceNotEligible): return "This device does not support Apple Intelligence. Manual entry still works."
+            case .unavailable(.appleIntelligenceNotEnabled): return "Enable Apple Intelligence in Settings to use on-device assistance. Manual entry still works."
+            case .unavailable(.modelNotReady): return "Apple's on-device model is not ready. Manual entry still works."
+            default: return "On-device suggestions are unavailable. Manual entry still works."
             }
         }
         #endif
-        return "On-device text suggestions need iOS 26 and an eligible Apple Intelligence device. Label scanning still works."
+        return "On-device text suggestions need iOS 26 and an eligible Apple Intelligence device. Manual entry still works."
     }
     static func suggest(description: String, label: String) async throws -> WardrobeAssistedDraft {
         guard description.utf8.count + label.utf8.count <= 6000, !(description + label).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw WardrobeWriteError("Use a short description or scanned label (up to 6000 UTF-8 bytes).") }

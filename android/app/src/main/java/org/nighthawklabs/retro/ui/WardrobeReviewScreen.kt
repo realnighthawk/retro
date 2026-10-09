@@ -33,6 +33,7 @@ fun WardrobeSuggestionsScreen(store: WardrobeStore, day: String, onClose: () -> 
     var request by remember { mutableStateOf(0) }
     var seed by remember { mutableStateOf<WardrobeOutfitDraft?>(null) }
     var reviewing by remember { mutableStateOf(false) }
+    var comparison by remember { mutableStateOf<WardrobeComparison?>(null) }
     fun currentQuery() = WardrobeSuggestQuery(day, occasion, warmth, required.map { it.id }, excluded.map { it.id }, seen, variant)
     val scope = rememberCoroutineScope()
     fun reset() { seen = emptyList(); variant = 0; read = WardrobeRead(); drafts = emptyMap(); errors = emptyMap() }
@@ -60,6 +61,7 @@ fun WardrobeSuggestionsScreen(store: WardrobeStore, day: String, onClose: () -> 
         }, maximum = if (kind == "required") 10 else 100, onlyReady = kind == "required") { choosing = null }
     }
     seed?.let { WardrobeOutfitEditor(store, seed = it) { seed = null } }
+    comparison?.let { WardrobeComparisonScreen(store, it, { currentQuery() }) { comparison = null } }
     WriteDialog("Suggestions", onClose, "Done", true, onClose) {
         item { Text("For $day. Suggestions are unsaved choices. Review one before saving a plan or recording wear.") }
         item { OutlinedTextField(occasion, { occasion = it; reset() }, label = { Text("Occasion or formality") }, modifier = Modifier.fillMaxWidth()) }
@@ -75,6 +77,12 @@ fun WardrobeSuggestionsScreen(store: WardrobeStore, day: String, onClose: () -> 
         }
         read.value?.let { result ->
             if (result.items.isEmpty()) item { Text(result.noResultReason ?: "No eligible combinations. Compose an outfit manually.") }
+            item {
+                TextButton(onClick = {
+                    try { comparison = WardrobeComparison(currentQuery(), result.items.filter { it.fingerprint in drafts }, drafts) }
+                    catch (e: Exception) { read = read.copy(problem = e.localizedMessage) }
+                }, enabled = !read.loading && drafts.size >= 2) { Text("Compare refreshed options") }
+            }
             result.items.forEach { option -> item(key = option.fingerprint) {
                 Panel {
                     Text(drafts[option.fingerprint]?.items?.joinToString(", ") { it.name } ?: "${option.items.size} pieces · refresh needed", style = MaterialTheme.typography.titleMedium)

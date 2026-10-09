@@ -31,7 +31,7 @@ struct WardrobePending: Codable, Identifiable {
                 return context ?? "Pieces: \(items.count) · " + items.compactMap { $0["role"] }.joined(separator: ", ")
             }
             if let values = value as? [String] { return "\(WardrobeVocabulary.title(key)): \(values.joined(separator: ", "))" }
-            if key == "favourite", let favourite = value as? Bool { return "Favourite: \(favourite ? "Yes" : "No")" }
+            if key == "favourite" || WardrobeSettingFields.booleans.contains(key), let flag = value as? Bool { return "\(WardrobeSettingFields.label(key)): \(flag ? "Yes" : "No")" }
             return "\(WardrobeVocabulary.title(key)): \(value)"
         }.joined(separator: "\n")
     }
@@ -52,6 +52,30 @@ struct WardrobePending: Codable, Identifiable {
     convenience init(engine: Engine) {
         let scope = SHA256.hash(data: Data(engine.cacheScope.utf8)).map { String(format: "%02x", $0) }.joined()
         self.init(file: DiskCache(owner: engine.owner).durableURL("wardrobe-writes-\(scope)"), stillOwner: { engine.isCurrentOwner }) { op, body in
+            if op.hasPrefix("laundry_") {
+                let result: Api<WardrobeLaundryResult> = await engine.callFrozen(op, body: body)
+                return result.map { _ in true }
+            }
+            if op == "wardrobe_daily_settings_update" {
+                let result: Api<WardrobeDailySettingsResult> = await engine.callFrozen(op, body: body)
+                return result.map { _ in true }
+            }
+            if op == "wardrobe_day_selection_update" {
+                let result: Api<WardrobeDaySelectionResult> = await engine.callFrozen(op, body: body)
+                return result.map { _ in true }
+            }
+            if op.hasPrefix("pairings_") {
+                let result: Api<WardrobePairingResult> = await engine.callFrozen(op, body: body)
+                return result.map { _ in true }
+            }
+            if op == "preferences_update" {
+                let result: Api<WardrobePreferencesResult> = await engine.callFrozen(op, body: body)
+                return result.map { _ in true }
+            }
+            if op == "outfits_feedback_update" {
+                let result: Api<WardrobeFeedbackResult> = await engine.callFrozen(op, body: body)
+                return result.map { _ in true }
+            }
             if op.hasPrefix("garments_") {
                 let result: Api<WardrobeGarmentResult> = await engine.callFrozen(op, body: body)
                 return result.map { _ in true }

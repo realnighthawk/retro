@@ -21,16 +21,18 @@ type PatchInput struct {
 	Patch map[string]json.RawMessage `json:"patch"`
 }
 type GarmentAttributes struct {
-	Subtype   string   `json:"subtype,omitempty"`
-	Colours   []string `json:"colours,omitempty"`
-	Warmth    string   `json:"warmth,omitempty"`
-	Seasons   []string `json:"seasons,omitempty"`
-	Formality string   `json:"formality,omitempty"`
-	Material  string   `json:"material,omitempty"`
-	Brand     string   `json:"brand,omitempty"`
-	Notes     string   `json:"notes,omitempty"`
-	Favourite bool     `json:"favourite,omitempty"`
-	MediaIDs  []string `json:"media_ids,omitempty"`
+	Subtype         string           `json:"subtype,omitempty"`
+	Colours         []string         `json:"colours,omitempty"`
+	Warmth          string           `json:"warmth,omitempty"`
+	Seasons         []string         `json:"seasons,omitempty"`
+	Formality       string           `json:"formality,omitempty"`
+	Material        string           `json:"material,omitempty"`
+	Brand           string           `json:"brand,omitempty"`
+	Notes           string           `json:"notes,omitempty"`
+	Favourite       bool             `json:"favourite,omitempty"`
+	MediaIDs        []string         `json:"media_ids,omitempty"`
+	Care            *CareSettings    `json:"care,omitempty"`
+	LaundryReminder *LaundryReminder `json:"laundry_reminder,omitempty"`
 }
 type GarmentData struct {
 	Name         string `json:"name"`
@@ -127,8 +129,9 @@ type DayInput struct {
 	IncludeVoid bool   `json:"include_void,omitempty"`
 }
 type DayResult struct {
-	Day     string   `json:"day"`
-	Outfits []Outfit `json:"outfits"`
+	Day       string       `json:"day"`
+	Outfits   []Outfit     `json:"outfits"`
+	Selection DaySelection `json:"selection"`
 }
 type HistoryInput struct {
 	ListInput

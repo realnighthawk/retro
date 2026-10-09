@@ -1,12 +1,12 @@
 import SwiftUI
 
-private struct WardrobeOutfitSeed: Identifiable { let id = UUID(); let draft: WardrobeOutfitDraft }
-
 struct WardrobeSuggestionsView: View {
     let store: WardrobeStore
     let day: String
     @State private var occasion = ""
     @State private var warmth = ""
+    @State private var swapRole: String?
+    @State private var expectedPreferencesVersion: Int64?
     @State private var required: [WardrobeSelection] = []
     @State private var excluded: [WardrobeSelection] = []
     @State private var seen: [String] = []
@@ -17,29 +17,62 @@ struct WardrobeSuggestionsView: View {
     @State private var drafts: [String: WardrobeOutfitDraft] = [:]
     @State private var errors: [String: String] = [:]
     @State private var request = 0
+    @State private var language: WardrobeLanguageContext?
+    @State private var unhandled: [String] = []
     @State private var seed: WardrobeOutfitSeed?
-    private var query: WardrobeSuggestQuery {
-        WardrobeSuggestQuery(day: day, occasion: occasion, warmth: warmth, requiredIDs: required.map(\.id), excludedIDs: excluded.map(\.id), excludedCombinations: seen, variant: variant)
+    @State private var comparison: WardrobeComparison?
+    @State private var assistance: WardrobeCandidateContext?
+    @State private var assistedSwap: WardrobeSuggestQuery?
+    @State private var assistedPieces: [WardrobeSelection] = []
+    @State private var reviewTask: Task<Void, Never>?
+    init(store: WardrobeStore, day: String, initialQuery: WardrobeSuggestQuery? = nil, pieces: [WardrobeSelection] = []) {
+        self.store = store; self.day = day
+        if let input = initialQuery {
+            _occasion = State(initialValue: input.occasion); _warmth = State(initialValue: input.warmth)
+            _swapRole = State(initialValue: input.swapRole)
+            _expectedPreferencesVersion = State(initialValue: input.expectedPreferencesVersion)
+            _seen = State(initialValue: input.excludedCombinations); _variant = State(initialValue: input.variant)
+            _required = State(initialValue: input.requiredIDs.map { id in pieces.first { $0.id == id } ?? WardrobeSelection(id: id, name: "Locked piece", role: "other") })
+            _excluded = State(initialValue: input.excludedIDs.map { id in pieces.first { $0.id == id } ?? WardrobeSelection(id: id, name: "Excluded piece", role: "other") })
+        }
     }
+    private var query: WardrobeSuggestQuery {
+        WardrobeSuggestQuery(day: day, occasion: occasion, warmth: warmth, requiredIDs: required.map(\.id), excludedIDs: excluded.map(\.id), excludedCombinations: seen, variant: variant, expectedPreferencesVersion: expectedPreferencesVersion, swapRole: swapRole)
+    }
+    private var reviewQuery: WardrobeSuggestQuery { (try? read.value?.reviewQuery(query, cached: read.cached)) ?? query }
     var body: some View {
         List {
             Section("Preferences") {
                 Text("For \(day). Suggestions are unsaved choices. Review one before saving a plan or recording wear.").font(.footnote)
-                TextField("Occasion or formality", text: $occasion)
+                Button("Describe an outfit") { language = WardrobeLanguageContext(suggestion: query, required: required, excluded: excluded) }.frame(minHeight: 44)
+                ForEach(Array(unhandled.enumerated()), id: \.offset) { _, value in Text("Not applied: " + value).font(.footnote) }
+                TextField("Occasion (empty uses saved default)", text: $occasion)
                 Picker("Warmth", selection: $warmth) {
                     Text("Any warmth").tag("")
                     ForEach(["light", "mid", "warm"], id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) }
                 }
-                Button("Include pieces · \(required.count)/10") { choosingRequired = true }.frame(minHeight: 44)
+                Button("Locked pieces · \(required.count)/10") { choosingRequired = true }.frame(minHeight: 44)
                 Text(required.map(\.name).joined(separator: ", ")).font(.footnote)
                 Button("Exclude pieces · \(excluded.count)") { choosingExcluded = true }.frame(minHeight: 44)
                 Text(excluded.map(\.name).joined(separator: ", ")).font(.footnote)
-                Button("Generate suggestions") { seen = []; variant = 0; request += 1 }.disabled(read.loading)
-                Text("Warmth and occasion prioritize saved tags. No weather is inferred.").font(.footnote)
+                if let swapRole { Text("Replacing the \(WardrobeVocabulary.title(swapRole)) role; other pieces are locked.").font(.footnote) }
+                Button("Clear locks and exclusions") { required = []; excluded = []; swapRole = nil; reset(); request += 1 }.frame(minHeight: 44).disabled(read.loading)
+                Button("Generate suggestions") { expectedPreferencesVersion = nil; seen = []; variant = 0; request += 1 }.disabled(read.loading)
+                Text("Uses saved preferences and explicit rated wears. Warmth and style match saved tags; weather is not inferred.").font(.footnote)
             }
             WardrobeReadStatus(state: read) { await load() }
             if let result = read.value {
+                if let occasion = result.effectiveOccasion, !occasion.isEmpty { Text("Ranking occasion: " + occasion).font(.footnote) }
+                ForEach(Array((result.warnings ?? []).enumerated()), id: \.offset) { _, warning in Text(warning).font(.footnote).foregroundStyle(.secondary) }
                 if result.items.isEmpty { Text(result.noResultReason ?? "No eligible combinations. Compose an outfit manually.") }
+                Button("Help me choose or swap on this device") {
+                    do { assistance = try WardrobeCandidateContext(input: query, result: result, revision: store.changes, cached: read.cached) }
+                    catch { read.problem = error.localizedDescription }
+                }.frame(minHeight: 44).disabled(read.loading || read.cached)
+                Button("Compare refreshed options") {
+                    do { comparison = try WardrobeComparison(query: reviewQuery, options: result.items.filter { drafts[$0.id] != nil }, drafts: drafts) }
+                    catch { read.problem = error.localizedDescription }
+                }.frame(minHeight: 44).disabled(read.loading || drafts.count < 2)
                 ForEach(result.items) { option in
                     Section("Option") {
                         if let draft = drafts[option.id] { Text(draft.items.map(\.name).joined(separator: ", ")).font(.headline) }
@@ -47,14 +80,29 @@ struct WardrobeSuggestionsView: View {
                         ForEach(option.reasons, id: \.self) { Text($0).font(.footnote) }
                         if !option.missingRoles.isEmpty { Text("Incomplete coverage: \(option.missingRoles.map(WardrobeVocabulary.title).joined(separator: ", ")). You can add pieces in the editor.").font(.footnote) }
                         if let error = errors[option.id] { Text(error).foregroundStyle(Tok.stamp) }
+                        if let draft = drafts[option.id] {
+                            ForEach(draft.items) { piece in
+                                HStack {
+                                    Button {
+                                        if required.contains(where: { $0.id == piece.id }) { required.removeAll { $0.id == piece.id } }
+                                        else { if swapRole == piece.role { swapRole = nil }; required.append(piece) }
+                                    } label: { Label(piece.name, systemImage: required.contains(where: { $0.id == piece.id }) ? "lock.fill" : "lock.open") }
+                                    .frame(minHeight: 44).accessibilityLabel("\(required.contains(where: { $0.id == piece.id }) ? "Unlock" : "Lock") \(piece.name)")
+                                    Spacer()
+                                    Button("Swap") { swap(piece, option: option, pieces: draft.items) }.frame(minHeight: 44)
+                                        .disabled(read.loading || required.contains(where: { $0.id == piece.id }))
+                                }
+                            }
+                        }
                         Button("Review this outfit") {
-                            let input = query
-                            Task {
+                            let input = reviewQuery
+                            reviewTask?.cancel()
+                            reviewTask = Task {
                                 do {
                                     let draft = try await store.reviewSuggestion(option, query: input)
-                                    guard input == query, store.isCurrentOwner, !Task.isCancelled else { return }
+                                    guard input == reviewQuery, store.isCurrentOwner, !Task.isCancelled else { return }
                                     seed = WardrobeOutfitSeed(draft: draft)
-                                } catch { if input == query, store.isCurrentOwner { errors[option.id] = error.localizedDescription } }
+                                } catch { if input == reviewQuery, store.isCurrentOwner { errors[option.id] = error.localizedDescription } }
                             }
                         }.frame(minHeight: 44).disabled(read.loading)
                     }
@@ -70,21 +118,54 @@ struct WardrobeSuggestionsView: View {
         .onChange(of: warmth) { _, _ in reset() }
         .onChange(of: required) { _, _ in reset() }
         .onChange(of: excluded) { _, _ in reset() }
+        .onChange(of: swapRole) { _, _ in reset() }
         .sheet(isPresented: $choosingRequired) { WardrobeGarmentPicker(store: store, items: $required, historical: false, maximum: 10, onlyReady: true) }
         .sheet(isPresented: $choosingExcluded) { WardrobeGarmentPicker(store: store, items: $excluded, historical: false, maximum: 100) }
+        .sheet(item: $language) { context in
+            WardrobeLanguageView(store: store, context: context) { draft, includes, excludes, limitations in
+                guard context.suggestion == query else { throw WardrobeWriteError("The outfit constraints changed. Review a fresh interpretation.") }
+                let input = try draft.outfitQuery(day: day, required: includes, excluded: excludes)
+                occasion = input.occasion; warmth = input.warmth; required = includes; excluded = excludes; unhandled = limitations; reset()
+            }
+        }
         .sheet(item: $seed) { WardrobeOutfitEditor(store: store, seed: $0.draft) }
+        .sheet(item: $comparison) { value in
+            WardrobeComparisonView(store: store, comparison: value, currentQuery: { reviewQuery },
+                candidateContext: read.value.flatMap { try? WardrobeCandidateContext(input: query, result: $0, revision: store.changes, cached: read.cached) })
+        }
+        .sheet(item: $assistance) { context in
+            WardrobeCandidateAssistanceView(store: store, context: context,
+                current: { query == context.input && !read.loading && !read.cached && read.value?.generatedAt == context.result.generatedAt },
+                onSwap: { input, pieces in assistedPieces = pieces; assistedSwap = input })
+        }
+        .navigationDestination(item: $assistedSwap) { input in WardrobeSuggestionsView(store: store, day: input.day, initialQuery: input, pieces: assistedPieces) }
+        .onDisappear { reviewTask?.cancel() }
     }
-    private func reset() { seen = []; variant = 0; read = WardrobeRead(); drafts = [:]; errors = [:] }
+    private func swap(_ piece: WardrobeSelection, option: WardrobeSuggestion, pieces: [WardrobeSelection]) {
+        do {
+            let input = try option.swapping(piece, query: reviewQuery)
+            required = pieces.filter { input.requiredIDs.contains($0.id) }
+            excluded.append(piece); swapRole = input.swapRole; seen = []; variant = 0; request += 1
+        } catch { read.problem = error.localizedDescription }
+    }
+    private func reset() { reviewTask?.cancel(); expectedPreferencesVersion = nil; seen = []; variant = 0; read = WardrobeRead(); drafts = [:]; errors = [:] }
     private func load() async {
         let input = query
         do { try input.validate() } catch { read = WardrobeRead(problem: error.localizedDescription); return }
         read.loading = true; drafts = [:]; errors = [:]
         let result: WardrobeRead<WardrobeSuggestions> = await store.read("wardrobe_suggest", input: input)
         guard !Task.isCancelled, store.isCurrentOwner, input == query else { return }
+        let resolved: WardrobeSuggestQuery
+        do {
+            guard let value = result.value else { read = result; return }
+            resolved = try value.reviewQuery(input, cached: result.cached)
+        } catch { read = WardrobeRead(problem: error.localizedDescription); return }
         read = result
+        read.loading = true
+        defer { if input == query { read.loading = false } }
         for option in result.value?.items ?? [] {
             do {
-                let draft = try await store.reviewSuggestion(option, query: input)
+                let draft = try await store.reviewSuggestion(option, query: resolved)
                 guard !Task.isCancelled, store.isCurrentOwner, input == query else { return }
                 drafts[option.id] = draft
             } catch {

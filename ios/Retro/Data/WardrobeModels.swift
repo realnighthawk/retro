@@ -23,11 +23,14 @@ struct WardrobeGarment: Codable, Identifiable, Equatable {
     let wearDays: Int64
     let wearEvents: Int64
     let lastWornOn: String?
+    var care: WardrobeCare? = nil
+    var laundryReminder: WardrobeLaundryReminder? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, version, name, category, availability, subtype, colours, warmth, seasons, formality, material, brand, notes, favourite
+        case id, version, name, category, availability, subtype, colours, warmth, seasons, formality, material, brand, notes, favourite, care
         case mediaIDs = "media_ids", archivedAt = "archived_at", createdAt = "created_at", updatedAt = "updated_at"
         case wearDays = "wear_days", wearEvents = "wear_events", lastWornOn = "last_worn_on"
+        case laundryReminder = "laundry_reminder"
     }
 }
 
@@ -73,6 +76,7 @@ struct WardrobePage<Item: Codable>: Codable {
 struct WardrobeDay: Codable {
     let day: String
     let outfits: [WardrobeOutfit]
+    var selection: WardrobeDaySelection? = nil
 }
 
 struct WardrobeGarmentResult: Codable { let garment: WardrobeGarment }

@@ -12,6 +12,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import org.nighthawklabs.retro.data.WardrobeEntryRequest
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -36,9 +38,15 @@ import org.nighthawklabs.retro.onboarding.ProvisionGate
  * The whole app branches on one thing: who is signed in. A different user is a screen, never a reused one.
  */
 @Composable
-fun AppRoot(onOpenAccount: () -> Unit) {
+fun AppRoot(onOpenAccount: () -> Unit, entryRequest: WardrobeEntryRequest? = null, onEntryConsumed: () -> Unit = {}) {
     val tok = Retro.tok
     val state by Auth.state.collectAsState()
+    val owner = (state as? AuthState.SignedIn)?.userId
+    var previousOwner by remember { mutableStateOf(owner) }
+    LaunchedEffect(owner) {
+        if (previousOwner != null && owner != previousOwner) onEntryConsumed()
+        previousOwner = owner
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(tok.bone)) {
         when (state) {
@@ -46,7 +54,7 @@ fun AppRoot(onOpenAccount: () -> Unit) {
             AuthState.SignedOut -> Welcome()
             is AuthState.SignedIn -> {
                 val userId = (state as AuthState.SignedIn).userId
-                key(userId) { ProvisionGate(userId) { AppShell(userId = userId, onOpenAccount = onOpenAccount) } }
+                key(userId) { ProvisionGate(userId) { AppShell(userId = userId, onOpenAccount = onOpenAccount, entryRequest = entryRequest, onEntryConsumed = onEntryConsumed) } }
             }
         }
     }

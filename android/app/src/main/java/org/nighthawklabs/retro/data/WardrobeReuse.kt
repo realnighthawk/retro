@@ -1,7 +1,5 @@
 package org.nighthawklabs.retro.data
 
-import java.time.LocalDate
-
 data class WardrobeReusePiece(val id: String, val name: String, val role: String, val problem: String? = null) {
     val selection: WardrobeSelection get() = WardrobeSelection(id, name, role)
 }

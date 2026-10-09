@@ -26,6 +26,7 @@ struct GarmentAssistanceView: View {
                 Section("On this device") {
                     Text("Describe the garment or scan its label. Suggestions use this text only; they do not inspect garment photos.").font(.footnote)
                     TextField("Garment description", text: $description, axis: .vertical).lineLimit(3...6)
+                    WardrobeVoiceInput(store: store, text: $description, byteLimit: 6000)
                     PhotosPicker(selection: $scan, matching: .images) { Label("Scan a label", systemImage: "text.viewfinder") }.disabled(busy)
                     if !label.isEmpty { TextField("Recognized label text — check for errors", text: $label, axis: .vertical).lineLimit(3...8) }
                     Text("Label photos and discarded suggestions stay local. Brand and material need readable label evidence or your own input.").font(.footnote)

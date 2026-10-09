@@ -4,26 +4,48 @@ Proposed on 2026-10-08. This is a plan, not completed client implementation.
 Finish Retro's wardrobe flow first; then build Sensei's productivity clients against their own backend contract.
 The [Retro feature roadmap](retro-feature-roadmap.md) defines the complete first release and its intelligent/product
 follow-ups. Retro is the current implementation focus; no Sensei work is required to complete it.
-Do not deploy or run verification during this planning step. Runtime validation follows the owner's deployment.
+The [next-feature checklist](retro-feature-checklist.md) maps daily outfits, live try-on and laundry planning to
+on-device Apple Intelligence/native processing and the existing agent's context/scheduled/heavy capabilities.
+Apple Private Cloud Compute is excluded; the new allocation does not change completed M1–M6 source.
+The [P1–P6 phase plan](retro-implementation-phases.md) sequences the next implementation. P1 shared preferences,
+care, machine presets, feedback and native editing/recovery are implemented in source, including iOS Apple typed
+proposals/read-only context and the bounded gateway MCP loop. P2.1 adds preference/explicit-rating ranking,
+on-open Today choices and role-preserving swaps on iOS. P2.2 adds stable daily selections and saved garment pairings.
+P2.3 adds reviewed Apple candidate comparison/explanation and contextual swaps on iOS. P2.4 adds source-linked
+connected outfit context, optional Apple interpretation and reviewed warmth/occasion changes with native fallback.
+P2.5 adds versioned daily automation, a stable Temporal agent wake, cached daily choices and one authorized
+connected-service delivery attempt. P3.1 adds manual compatible laundry plans, confirmed wash/dry progress and
+retained history. P3.2 adds reviewed on-device laundry requests and care-label OCR/text drafts.
+P3.3 adds derived wears since completed cleaning and optional in-app care check-ins. P3.4 adds reviewed local/agent
+timing and batch proposals over bounded upcoming outfit needs. Capture/discovery/maintenance in P4 is next;
+see the [agent contract](retro-agent-contract.md).
+Runtime validation follows the owner's deployment; these changes do not deploy or run suites.
 
 Implementation has begun iteratively: milestone 1 is now implemented in source on both platforms (not built/tested).
 The shell reads real inventory/day/history and record details with scoped caches, filters and cursor pagination.
 The old productivity demo is preserved. Milestone 2 is also implemented in source on both platforms: manual
 versioned garment/outfit forms and atomic durable pending saves with frozen keys/payloads, foreground/reconnect
 replay, and basic rejected-request review. M3 private photos and optional iOS OCR/cutout/text capture assistance are also implemented for the installed SDK.
-No builds/tests/runtime verification have run; direct model image prompting awaits newer SDK declarations.
+Direct model image prompting awaits newer SDK declarations. The current M6 iOS signed Debug build/install/launch
+succeeded on 2026-10-08; authored suites and full runtime verification remain deferred.
 M4 source adds suggestions, insights, audit/date/garment history filters, durable form/photo drafts, queued-create
-followups and reviewed rejected-request replacement. See the roadmap for remaining device/accessibility validation.
+followups and reviewed rejected-request replacement. M5 source now adds iOS typed request/search interpretation and
+optional reviewed local voice, plus real candidate comparison and outfit reuse on both clients. The iOS M5 build
+passed and its running process was confirmed on the iPhone; tests and Android builds remain unrun. M6 source now
+implements optional iOS local duplicate hints, factual period reviews, resumable per-photo entry and authenticated
+Add/Search/Today system actions, with Android manual/launcher parity. Existing draft/write/photo queues handle delivery;
+no backend contract changes are needed. The signed M6 iOS build/install/launch passed on the iPhone 17 Pro on
+2026-10-08, with its running process confirmed. Suites, Android builds/deployment and full integration/device/accessibility validation remain pending.
 
-The [on-device intelligence plan](on-device-intelligence-plan.md) adds optional Apple-powered capture and interpretation
-before implementation begins. Manual/core behavior remains the baseline; local intelligence does not replace engine rules.
+The [on-device intelligence plan](on-device-intelligence-plan.md) defines optional Apple-powered capture and interpretation.
+Manual/core behavior remains the baseline; local intelligence does not replace engine rules.
 
 ## Starting point
 
 | Area | Current state | Remaining work |
 | --- | --- | --- |
-| Retro iOS and Android | Real reads/writes, durable pending saves/photos, private capture, optional iOS local assistance, Clerk login and shared idempotent onboarding; M1–M4 source unverified | Device/accessibility validation and later assistance |
-| Retro backend | 20 operations, versioned writes, immutable wear snapshots, private photo processing | Native DTOs, stores, operation callers and media transport |
+| Retro iOS and Android | Real reads/writes, durable pending saves/photos, private capture, optional iOS local assistance, Clerk login and shared idempotent onboarding; M1–M6 source; M6 iPhone build/install/launch confirmed | Suites, Android build/deployment and integration/device/accessibility validation; later C features after scope selection |
+| Retro backend / agent integration | 46 operations including P1 preferences/presets/care/feedback/context; P2 ranking/selections/pairings/daily automation and P3.1 manual laundry plans/reservations/progress/history. P3.2 adds local request/label help; P3.3 adds wear facts and in-app check-ins; P3.4 adds reviewed native Apple/agent timing/batches using existing operations. Apple/MCP and Temporal wakes reuse the harness | Broader weather selection, provider delivery guarantees/iPhone push, laundry notification delivery and richer scheduling; owner deployment, then contract/integration validation |
 | Router / tenant chart | `/retro` wiring and a MinIO dependency with 10 GB storage implemented in agent-harness | Owner deployment, then integration validation |
 | Local persistence | iOS `DiskCache` and Android atomic private read files; caches scope account/endpoint/query | Atomic pending writes/replay implemented; staged photos and frozen attachment recovery implemented; garment/outfit/photo drafts, queued-create followups and selected-field recovery implemented; runtime checks deferred |
 | Sensei | Product boundary documented | Repository choice, native apps, registrations, backend contract and `/sensei` route |
@@ -163,7 +185,8 @@ Confirmed totals remain server-derived while pending work is shown separately.
 ### 5. Suggestions, insights and finishing
 
 Rule-based suggestions, factual insights, all timeline filters and per-record audit pagination are implemented in
-source on both clients. New fixtures/tests are authored, not run. Local request interpretation is M5; actual
+source on both clients. Tests are authored, not run. M5 local request/search interpretation, reviewed voice, comparison
+and reuse are also implemented in source; actual
 screen-reader, keyboard, high-contrast and hardware checks remain deferred until the owner deploys.
 
 - Add optional local interpretation of outfit requests using the intelligence plan's constrained draft flow.

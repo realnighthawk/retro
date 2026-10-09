@@ -78,8 +78,11 @@ func updateGarment(ctx context.Context, u *unit, in PatchInput) (GarmentResult, 
 	if before.ArchivedAt != nil {
 		return result, conflict("restore this garment before editing")
 	}
+	if e = u.ensureLaundryUnreserved(ctx, before.ID); e != nil {
+		return result, e
+	}
 	data := before.GarmentData
-	if e = patchFields(&data, in.Patch, "name", "category", "availability", "subtype", "colours", "warmth", "seasons", "formality", "material", "brand", "notes", "favourite", "media_ids"); e != nil {
+	if e = patchFields(&data, in.Patch, "name", "category", "availability", "subtype", "colours", "warmth", "seasons", "formality", "material", "brand", "notes", "favourite", "media_ids", "care", "laundry_reminder"); e != nil {
 		return result, e
 	}
 	if e = validateGarment(&data); e != nil {
@@ -107,6 +110,9 @@ func lifecycleGarment(ctx context.Context, u *unit, in EditInput, restore bool) 
 		return result, e
 	}
 	if e = version(in.ExpectedVersion, before.Version); e != nil {
+		return result, e
+	}
+	if e = u.ensureLaundryUnreserved(ctx, before.ID); e != nil {
 		return result, e
 	}
 	if restore == (before.ArchivedAt == nil) {

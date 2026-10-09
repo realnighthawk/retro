@@ -40,7 +40,7 @@ fun WardrobeGarmentEditor(store: WardrobeStore, garment: WardrobeGarment? = null
     var problem by remember { mutableStateOf<String?>(null) }
     var saved by remember { mutableStateOf(false) }
     LaunchedEffect(draft) {
-        if (!saved) try { if (draft == original && entry.dependency == null) store.drafts?.remove(entry.id) else store.drafts?.put(entry.copy(garmentDraft = draft)) } catch (e: Exception) { problem = e.localizedMessage }
+        if (!saved) try { if (draft == original && entry.dependency == null && entry.importPhoto == null) store.drafts?.remove(entry.id) else store.drafts?.put(entry.copy(garmentDraft = draft)) } catch (e: Exception) { problem = e.localizedMessage }
     }
     if (discarding) DraftEdits("Keep or discard garment edits?", { discarding = false }, {
         try { store.drafts?.put(entry.copy(garmentDraft = draft)); onClose() } catch (e: Exception) { problem = e.localizedMessage; discarding = false }
@@ -52,18 +52,26 @@ fun WardrobeGarmentEditor(store: WardrobeStore, garment: WardrobeGarment? = null
             val id = entry.entityID
             if (baseline != null) {
                 val patch = WardrobeDraftValidation.patch(fields, WardrobeGarmentDraft(baseline).fields())
-                if (patch.isEmpty()) { store.drafts?.remove(entry.id); onClose(); return@WriteDialog }
+                if (patch.isEmpty()) { if (entry.importPhoto == null) store.drafts?.remove(entry.id); onClose(); return@WriteDialog }
                 fields = JsonObject(WardrobeDraftValidation.edit(id, baseline.version) + ("patch" to patch))
             } else fields = JsonObject(fields + ("id" to JsonPrimitive(id)))
             store.drafts?.put(entry.copy(garmentDraft = draft))
-            if (entry.dependency != null) { checkNotNull(store.writes).replaceRejected(entry.dependency.id, entry.dependency.operation, fields); store.onEnqueued?.invoke() }
-            else store.submit(if (baseline == null) "garments_create" else "garments_update", id, draft.name, fields)
-            saved = true; store.drafts?.remove(entry.id); onClose()
+            val accepted = if (entry.dependency != null) {
+                val queue = checkNotNull(store.writes)
+                queue.replaceRejected(entry.dependency.id, entry.dependency.operation, fields)
+                val pending = queue.items.first { it.entity == id }
+                store.onEnqueued?.invoke(); pending
+            } else store.submit(if (baseline == null) "garments_create" else "garments_update", id, draft.name, fields)
+            saved = true
+            if (entry.importPhoto != null) store.drafts?.put(entry.copy(garmentDraft = if (baseline == null) draft else original, dependency = if (baseline == null) accepted else null))
+            else store.drafts?.remove(entry.id)
+            onClose()
         } catch (e: Exception) { problem = e.localizedMessage ?: "Could not save garment." }
     }) {
+        if (entry.importPhoto != null) item { WardrobeImportPhoto(store, entry.id) }
         item { Text("Edits stay on this phone and can be resumed from Pending saves. If this record has a pending save, keep editing and review against the latest record after acknowledgement."); store.drafts?.problem?.let { Text(it, color = Retro.tok.rust) } }
         if (entry.dependency != null) item { Text("These are later edits to the queued create. Keep them locally, then review selected fields after acknowledgement. A rejected create can be replaced explicitly.") }
-        item { Text("Photos are optional. Save the garment first, then add or manage photos from its detail.", style = MaterialTheme.typography.bodySmall) }
+        item { Text(if (entry.importPhoto == null) "Photos are optional. Save the garment first, then add or manage photos from its detail." else "Save the garment, then return to this photo review to accept its attachment.", style = MaterialTheme.typography.bodySmall) }
         item { WriteField("Name", draft.name) { draft = draft.copy(name = it) } }
         item { WriteChoice("Category", draft.category, WardrobeVocabulary.categories) { draft = draft.copy(category = it) } }
         item { WriteChoice("Availability", draft.availability, WardrobeVocabulary.availability) { draft = draft.copy(availability = it) } }
@@ -182,10 +190,10 @@ internal fun WardrobeGarmentPicker(store: WardrobeStore, selected: List<Wardrobe
         try {
             val result = store.choices(input)
             currentCoroutineContext().ensureActive()
-            if (ticket != revision || input.search != search) return
+            if (!store.isCurrentOwner || ticket != revision || input.search != search) return
             if (result is Api.Ok) page = WardrobePage(((if (more) page?.items else null).orEmpty() + result.value.items).distinctBy { it.id }, result.value.nextCursor)
             else {
-                if (!more) page = WardrobePage(store.inventory.value?.items.orEmpty().filter { (historical || it.archivedAt == null) && (search.isEmpty() || it.name.contains(search, ignoreCase = true)) })
+                if (!more) page = WardrobePage(store.inventory.value?.items.orEmpty().filter { (historical || it.archivedAt == null) && (!onlyReady || it.availability == "ready") && (search.isEmpty() || it.name.contains(search, ignoreCase = true)) })
                 problem = "${result.problem} Previously loaded choices may be incomplete."
             }
         } finally { if (ticket == revision) loading = false }
@@ -198,8 +206,11 @@ internal fun WardrobeGarmentPicker(store: WardrobeStore, selected: List<Wardrobe
         items(page?.items.orEmpty(), key = { it.id }) { garment ->
             val checked = selected.any { it.id == garment.id }
             TextButton(onClick = {
-                onSelection(if (checked) selected.filterNot { it.id == garment.id } else selected + WardrobeSelection(garment.id, garment.name, WardrobeDraftValidation.role(garment.category)))
-            }, enabled = store.writes?.contains(garment.id) != true && (checked || selected.size < maximum), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                val piece = WardrobeSelection(garment.id, garment.name, WardrobeDraftValidation.role(garment.category))
+                val next = if (checked) selected.filterNot { it.id == garment.id } else if (maximum == 1) listOf(piece) else selected + piece
+                assert(next.size <= maximum)
+                onSelection(next)
+            }, enabled = store.writes?.contains(garment.id) != true && (checked || maximum == 1 || selected.size < maximum), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Text("${if (checked) "Selected · " else ""}${garment.name} · ${if (garment.archivedAt == null) WardrobeVocabulary.title(garment.availability) else "Archived"}")
             }
         }
@@ -217,7 +228,8 @@ fun WardrobePendingScreen(store: WardrobeStore, onClose: () -> Unit) {
     var reviewing by remember { mutableStateOf<WardrobePending?>(null) }
     var reviewingDraft by remember { mutableStateOf<WardrobeSavedDraft?>(null) }
     var discardingDraft by remember { mutableStateOf<WardrobeSavedDraft?>(null) }
-    resuming?.let { entry -> if (entry.garmentDraft != null) WardrobeGarmentEditor(store, garment = entry.garment, resume = entry) { resuming = null }
+    resuming?.let { entry -> if (entry.importPhoto != null) WardrobeImportItemScreen(store, entry.id) { resuming = null }
+        else if (entry.garmentDraft != null) WardrobeGarmentEditor(store, garment = entry.garment, resume = entry) { resuming = null }
         else WardrobeOutfitEditor(store, outfit = entry.outfit, confirming = entry.confirming, resume = entry) { resuming = null } }
     reviewing?.let { WardrobeRecoveryScreen(store, pending = it) { reviewing = null } }
     reviewingDraft?.let { WardrobeRecoveryScreen(store, draft = it) { reviewingDraft = null } }
@@ -247,7 +259,7 @@ fun WardrobePendingScreen(store: WardrobeStore, onClose: () -> Unit) {
         store.drafts?.problem?.let { item { Text(it, color = Retro.tok.rust) } }
         items(store.drafts?.items.orEmpty(), key = { "draft:" + it.id }) { draft -> Panel {
             Text("Draft · ${draft.title}", style = MaterialTheme.typography.titleMedium)
-            Text("Local draft · not sent")
+            Text(if (draft.importPhoto == null) "Local draft · not sent" else "Photo import · resume to check save and attachment progress")
             TextButton(onClick = { resuming = draft }) { Text("Resume editing") }
             if (draft.dependency != null || draft.garment != null || (draft.outfit != null && !draft.confirming)) TextButton(onClick = { reviewingDraft = draft }, enabled = store.writes?.contains(draft.entityID) != true) { Text("Review against latest record") }
             draft.dependency?.let { dependency ->
@@ -274,7 +286,7 @@ fun WardrobePendingScreen(store: WardrobeStore, onClose: () -> Unit) {
                 if (item.operation in listOf("garments_create", "outfits_create")) TextButton(onClick = { try { resuming = checkNotNull(store.drafts).follow(item, store.inventory.value?.items.orEmpty().associate { it.id to it.name }) } catch (e: Exception) { problem = e.localizedMessage } }) { Text("Continue editing locally") }
                 if (item.rejected) {
                     Text("Compare requested changes with the latest record. Reapply selected fields with a new save, or remove this rejected request before editing manually.", style = MaterialTheme.typography.bodySmall)
-                    if (item.operation in listOf("garments_update", "garments_create", "outfits_update", "outfits_create") && store.photos?.batches?.none { it.attachmentKey == item.id } != false) TextButton(onClick = { reviewing = item }) { Text("Review and reapply selected fields") }
+                    if (item.operation in listOf("garments_update", "garments_create", "outfits_update", "outfits_create", "preferences_update", "outfits_feedback_update") && store.photos?.batches?.none { it.attachmentKey == item.id } != false) TextButton(onClick = { reviewing = item }) { Text("Review and reapply selected fields") }
                     Text(item.requestedSummary, style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { scope.launch { current = current + (item.id to store.currentSummary(item)) } }) { Text("Load current record") }
                     current[item.id]?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -345,6 +357,8 @@ fun WardrobeGarmentActions(store: WardrobeStore, garment: WardrobeGarment, enabl
 
 @Composable
 fun WardrobeOutfitActions(store: WardrobeStore, outfit: WardrobeOutfit, enabled: Boolean) {
+    var reusing by remember { mutableStateOf(false) }
+    if (reusing) WardrobeReuseScreen(store, outfit.id) { reusing = false }
     var editing by remember { mutableStateOf<WardrobeOutfit?>(null) }
     var confirming by remember { mutableStateOf<WardrobeOutfit?>(null) }
     var lifecycle by remember { mutableStateOf<WardrobeOutfit?>(null) }
@@ -365,6 +379,7 @@ fun WardrobeOutfitActions(store: WardrobeStore, outfit: WardrobeOutfit, enabled:
         if (store.writes?.contains(outfit.id) == true) Text("This outfit has a pending save. It is not confirmed until acknowledged.")
         problem?.let { Text(it, color = Retro.tok.rust) }
         val available = enabled && store.writes?.contains(outfit.id) != true
+        TextButton(onClick = { reusing = true }, enabled = available) { Text("Reuse as a new plan") }
         if (outfit.state != "void") TextButton(onClick = { editing = outfit }, enabled = enabled) { Text("Correct outfit") }
         if (outfit.state == "planned") TextButton(onClick = { confirming = outfit }, enabled = available) { Text("Record wear") }
         TextButton(onClick = { lifecycle = outfit }, enabled = available) { Text(if (outfit.state == "void") "Restore outfit" else "Void outfit") }

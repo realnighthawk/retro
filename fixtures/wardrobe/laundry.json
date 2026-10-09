@@ -1,0 +1,90 @@
+{
+  "preview": {
+    "program": {
+      "wash_method": "machine",
+      "temperature_c": 20,
+      "cycle": "gentle",
+      "drying": "line"
+    },
+    "generated_at": "2026-10-09T14:00:00Z",
+    "coverage": "active_needs_wash_only",
+    "inventory_count": 2,
+    "groups": [
+      {
+        "id": "dark",
+        "colour_group": "dark",
+        "items": [
+          {
+            "garment_id": "11111111-1111-4111-8111-111111111111",
+            "version": 9007199254740993,
+            "name": "Renamed dress"
+          }
+        ]
+      }
+    ],
+    "blocked": [
+      {
+        "garment_id": "44444444-4444-4444-8444-444444444444",
+        "version": 4,
+        "name": "Hand-wash fixture",
+        "reason": "Requires hand care; keep it in a separate method list."
+      }
+    ]
+  },
+  "load": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "version": 9007199254740993,
+    "name": "Cold darks",
+    "day": "2026-10-09",
+    "time_zone": "America/Los_Angeles",
+    "state": "planned",
+    "program": {
+      "wash_method": "machine",
+      "temperature_c": 20,
+      "cycle": "gentle",
+      "drying": "line"
+    },
+    "items": [
+      {
+        "garment_id": "11111111-1111-4111-8111-111111111111",
+        "expected_version": 9007199254740993,
+        "snapshot": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "version": 9007199254740993,
+          "name": "Renamed dress",
+          "category": "one_piece",
+          "availability": "needs_wash",
+          "colours": [
+            "chartreuse",
+            "navy"
+          ],
+          "warmth": "unknown",
+          "media_ids": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "archived_at": null,
+          "created_at": "2026-10-08T15:00:00.123456789Z",
+          "updated_at": "2026-10-08T15:00:00.123456789Z",
+          "wear_days": 1,
+          "wear_events": 2,
+          "last_worn_on": "2026-10-07",
+          "care": {
+            "wash_method": "machine",
+            "max_temp_c": 30,
+            "cycle": "gentle",
+            "colour_group": "dark",
+            "drying": "line",
+            "source": "manual",
+            "confirmed": true
+          }
+        }
+      }
+    ],
+    "started_at": null,
+    "washed_at": null,
+    "completed_at": null,
+    "cancelled_at": null,
+    "created_at": "2026-10-09T14:00:00Z",
+    "updated_at": "2026-10-09T14:00:00Z"
+  }
+}

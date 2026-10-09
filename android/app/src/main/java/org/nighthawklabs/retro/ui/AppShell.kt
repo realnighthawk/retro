@@ -48,15 +48,17 @@ import org.nighthawklabs.retro.auth.Auth
 import org.nighthawklabs.retro.auth.AuthState
 import org.nighthawklabs.retro.data.WardrobeReadCache
 import org.nighthawklabs.retro.data.WardrobeStore
+import org.nighthawklabs.retro.data.WardrobeEntryRequest
 import org.nighthawklabs.retro.net.Engine
 import org.nighthawklabs.retro.ui.theme.Retro
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppShell(userId: String, onOpenAccount: () -> Unit) {
+fun AppShell(userId: String, onOpenAccount: () -> Unit, entryRequest: WardrobeEntryRequest? = null, onEntryConsumed: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     var pending by remember { mutableStateOf(false) }
+    var settings by remember { mutableStateOf(false) }
     val store = remember(userId) {
         val currentUser = { (Auth.state.value as? AuthState.SignedIn)?.userId }
         val engine = Engine.live(userId, currentUser)
@@ -85,7 +87,22 @@ fun AppShell(userId: String, onOpenAccount: () -> Unit) {
         onDispose { lifecycle.removeObserver(observer); connectivity.unregisterNetworkCallback(callback) }
     }
     if (pending) WardrobePendingScreen(store) { pending = false }
+    if (settings) WardrobeSettingsScreen(store) { settings = false }
     val nav = rememberNavController()
+    var shortcutAdding by remember { mutableStateOf(false) }
+    var shortcutQuery by remember { mutableStateOf("") }
+    var shortcutToken by remember { mutableStateOf<String?>(null) }
+    if (shortcutAdding) WardrobeGarmentEditor(store) { shortcutAdding = false }
+    LaunchedEffect(entryRequest?.id) {
+        val request = entryRequest ?: return@LaunchedEffect
+        if (!store.isCurrentOwner) return@LaunchedEffect
+        pending = false; shortcutAdding = false
+        shortcutToken = request.id; shortcutQuery = request.query
+        val target = if (request.action == WardrobeEntryRequest.TODAY) "today" else "wardrobe"
+        nav.navigate("$target/list") { popUpTo(nav.graph.id); launchSingleTop = true }
+        if (request.action == WardrobeEntryRequest.ADD) shortcutAdding = true
+        onEntryConsumed()
+    }
     val entry by nav.currentBackStackEntryAsState()
     val tabs = listOf("today", "wardrobe", "history")
     val selected = tabs.firstOrNull { tab -> entry?.destination?.hierarchy?.any { it.route == tab } == true } ?: "today"
@@ -99,6 +116,7 @@ fun AppShell(userId: String, onOpenAccount: () -> Unit) {
                 title = { Text(selected.replaceFirstChar { it.titlecase() }) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = tok.bone),
                 actions = {
+                    TextButton(onClick = { settings = true }) { Text("Settings") }
                     TextButton(onClick = { pending = true }) { Text("Pending ${(store.writes?.items?.size ?: 0) + (store.photos?.batches?.size ?: 0) + (store.drafts?.items?.size ?: 0) + (store.photos?.drafts?.size ?: 0)}") }
                     IconButton(onClick = onOpenAccount) { Icon(Icons.Filled.Person, contentDescription = "Account") }
                 },
@@ -135,8 +153,8 @@ fun AppShell(userId: String, onOpenAccount: () -> Unit) {
                 navigation(startDestination = "$tab/list", route = tab) {
                     composable("$tab/list") {
                         when (tab) {
-                            "today" -> WardrobeTodayScreen(store) { nav.navigate("$tab/outfit/$it") }
-                            "wardrobe" -> WardrobeInventoryScreen(store) { nav.navigate("$tab/garment/$it") }
+                            "today" -> WardrobeTodayScreen(store, entryToken = shortcutToken) { nav.navigate("$tab/outfit/$it") }
+                            "wardrobe" -> WardrobeInventoryScreen(store, entrySearch = shortcutQuery, entryToken = shortcutToken) { nav.navigate("$tab/garment/$it") }
                             "history" -> WardrobeHistoryScreen(store) { nav.navigate("$tab/outfit/$it") }
                         }
                     }

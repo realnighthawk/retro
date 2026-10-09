@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct WardrobeGarmentEditor: View {
     let store: WardrobeStore
@@ -11,6 +12,7 @@ struct WardrobeGarmentEditor: View {
     @State private var saved = false
     @State private var discarding = false
     @State private var assistance = false
+    @State private var importImage: UIImage?
 
     init(store: WardrobeStore, garment: WardrobeGarment? = nil, resume: WardrobeSavedDraft? = nil) {
         let saved = resume ?? store.drafts.garment(garment?.id)
@@ -24,12 +26,13 @@ struct WardrobeGarmentEditor: View {
         NavigationStack {
             Form {
                 Section {
+                    if let importImage { Image(uiImage: importImage).resizable().scaledToFit().frame(maxHeight: 280).accessibilityLabel("Selected garment photo") }
                     Text("Edits are kept on this phone and can be resumed from Pending saves. They do not change confirmed records.").font(.footnote)
                     if entry.dependency != nil { Text("These are later edits to the queued create. Keep them locally, then review selected fields after acknowledgement. A rejected create can be replaced explicitly.").font(.footnote) }
                     if store.writes.contains(entry.entityID) { Text("This record has a pending save. Keep editing here; review against the latest record after it is acknowledged.").font(.footnote) }
                     if let problem = store.drafts.problem { Text(problem).foregroundStyle(Tok.stamp) }
                     Button("Capture assistance") { assistance = true }
-                    Text("Photos are optional. Save the garment first, then add or manage its photos from the garment detail.").font(.footnote)
+                    Text(entry.importPhoto == nil ? "Photos are optional. Save the garment first, then add or manage its photos from the garment detail." : "Save the garment, then return to this photo review to accept its attachment.").font(.footnote)
                 }
                 Section("Garment") {
                     TextField("Name", text: $draft.name)
@@ -58,6 +61,11 @@ struct WardrobeGarmentEditor: View {
         }
         .interactiveDismissDisabled(draft != original && !saved)
         .sheet(isPresented: $assistance) { GarmentAssistanceView(store: store, draft: $draft) }
+        .task(id: entry.importPhoto?.id) {
+            guard entry.importPhoto != nil else { return }
+            do { let bytes = try await store.drafts.importBytes(entry.id); if store.isCurrentOwner, !Task.isCancelled { importImage = PhotoPreparation.display(bytes) } }
+            catch { if !Task.isCancelled { problem = error.localizedDescription } }
+        }
         .onAppear { if draft != original { persist() } }
         .onChange(of: draft) { _, _ in if !saved { persist() } }
         .confirmationDialog("Keep or discard garment edits?", isPresented: $discarding, titleVisibility: .visible) {
@@ -67,7 +75,7 @@ struct WardrobeGarmentEditor: View {
     }
     private var rejectedCreate: Bool { entry.dependency.map { original in store.writes.items.contains { $0.id == original.id && $0.rejected && $0.operation == original.operation } } ?? false }
     private var currentEntry: WardrobeSavedDraft { var value = entry; value.garmentDraft = draft; return value }
-    private func persist() { do { if draft == original && entry.dependency == nil { try store.drafts.remove(entry.id) } else { try store.drafts.put(currentEntry) } } catch { problem = error.localizedDescription } }
+    private func persist() { do { if draft == original && entry.dependency == nil && entry.importPhoto == nil { try store.drafts.remove(entry.id) } else { try store.drafts.put(currentEntry) } } catch { problem = error.localizedDescription } }
     private func save() {
         guard !saved else { return }
         do {
@@ -78,16 +86,23 @@ struct WardrobeGarmentEditor: View {
             let id = entry.entityID
             if let garment {
                 let patch = WardrobeDraftValidation.patch(fields, original: try WardrobeGarmentDraft(garment).fields())
-                guard !patch.isEmpty else { try store.drafts.remove(entry.id); dismiss(); return }
+                guard !patch.isEmpty else { if entry.importPhoto == nil { try store.drafts.remove(entry.id) }; dismiss(); return }
                 fields = WardrobeDraftValidation.edit(id: id, version: garment.version); fields["patch"] = patch
             } else { fields["id"] = id }
             try store.drafts.put(currentEntry)
+            let accepted: WardrobePending?
             if let dependency = entry.dependency {
                 try store.writes.replaceRejected(dependency.id, operation: dependency.operation, fields: fields)
+                accepted = store.writes.items.first { $0.entity == id }
                 Task { await store.sync() }
-            } else { try store.submit(garment == nil ? "garments_create" : "garments_update", entity: id, title: draft.name, fields: fields) }
+            } else { accepted = try store.submit(garment == nil ? "garments_create" : "garments_update", entity: id, title: draft.name, fields: fields) }
             saved = true
-            try store.drafts.remove(entry.id)
+            if entry.importPhoto != nil {
+                var value = currentEntry
+                if garment == nil { value.dependency = accepted }
+                else { value.garmentDraft = original }
+                try store.drafts.put(value)
+            } else { try store.drafts.remove(entry.id) }
             dismiss()
         } catch { problem = error.localizedDescription }
     }
@@ -231,7 +246,9 @@ struct WardrobeGarmentPicker: View {
                     let selected = items.contains { $0.id == garment.id }
                     Button {
                         if selected { items.removeAll { $0.id == garment.id } }
+                        else if maximum == 1 { items = [WardrobeSelection(id: garment.id, name: garment.name, role: WardrobeDraftValidation.role(garment.category))] }
                         else { items.append(WardrobeSelection(id: garment.id, name: garment.name, role: WardrobeDraftValidation.role(garment.category))) }
+                        assert(items.count <= maximum)
                     } label: {
                         HStack {
                             VStack(alignment: .leading) {
@@ -240,7 +257,7 @@ struct WardrobeGarmentPicker: View {
                             }
                             Spacer(); if selected { Image(systemName: "checkmark") }
                         }.frame(minHeight: 44)
-                    }.disabled(store.writes.contains(garment.id) || (!selected && items.count >= maximum))
+                    }.disabled(store.writes.contains(garment.id) || (!selected && maximum != 1 && items.count >= maximum))
                     .accessibilityLabel("\(garment.name), \(selected ? "selected" : "not selected")")
                 }
                 if page?.nextCursor != nil { Button("Load more garments") { Task { await load(more: true) } }.disabled(loading) }
@@ -259,13 +276,13 @@ struct WardrobeGarmentPicker: View {
         let search = input.search
         loading = true; problem = nil
         let result = await store.choices(input)
-        guard !Task.isCancelled, ticket == revision, search == query.search else { return }
+        guard !Task.isCancelled, store.isCurrentOwner, ticket == revision, search == query.search else { return }
         loading = false
         if case .ok(let result) = result {
             page = WardrobePage(items: ((more ? page?.items : nil) ?? []).merging(result.items), nextCursor: result.nextCursor)
         } else {
             if !more {
-                let fallback = store.inventory.value?.items.filter { (historical || $0.archivedAt == nil) && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)) } ?? []
+                let fallback = store.inventory.value?.items.filter { (historical || $0.archivedAt == nil) && (!onlyReady || $0.availability == "ready") && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)) } ?? []
                 page = WardrobePage(items: fallback, nextCursor: nil)
             }
             problem = (result.problem ?? "Could not load garments.") + " Previously loaded choices may be incomplete."
@@ -295,7 +312,7 @@ struct WardrobePendingView: View {
                 if let problem = store.drafts.problem { Text(problem).foregroundStyle(Tok.stamp) }
                 ForEach(store.drafts.items) { draft in
                     Section("Draft · " + draft.title) {
-                        Text("Local draft · not sent").font(.footnote)
+                        Text(draft.importPhoto == nil ? "Local draft · not sent" : "Photo import · resume to check save and attachment progress").font(.footnote)
                         Button("Resume editing") { resuming = draft }.frame(minHeight: 44)
                         if draft.dependency != nil || draft.garment != nil || (draft.outfit != nil && !draft.confirming) {
                             Button("Review against latest record") { reviewingDraft = draft }.frame(minHeight: 44).disabled(store.writes.contains(draft.entityID))
@@ -328,8 +345,11 @@ struct WardrobePendingView: View {
                         }
                         if item.rejected {
                             Text("Compare requested changes with the latest record. Reapply selected fields with a new save, or remove this rejected request before editing manually.").font(.footnote)
-                            if ["garments_update", "garments_create", "outfits_update", "outfits_create"].contains(item.operation), !store.photos.batches.contains(where: { $0.attachmentKey == item.id }) {
-                                Button("Review and reapply selected fields") { reviewing = item }.frame(minHeight: 44)
+                            if item.operation.hasPrefix("laundry_") {
+                                Button(["laundry_create", "laundry_update"].contains(item.operation) ? "Review laundry programme and current pieces" : "Inspect current laundry progress") { reviewing = item }.frame(minHeight: 44)
+                            }
+                            if ["garments_update", "garments_create", "outfits_update", "outfits_create", "preferences_update", "outfits_feedback_update", "pairings_create", "pairings_update", "wardrobe_day_selection_update", "wardrobe_daily_settings_update"].contains(item.operation), !store.photos.batches.contains(where: { $0.attachmentKey == item.id }) {
+                                Button(item.operation == "wardrobe_day_selection_update" || item.operation == "pairings_create" ? "Review requested save" : "Review and reapply selected fields") { reviewing = item }.frame(minHeight: 44)
                             }
                             Text(item.requestedSummary).font(.footnote).textSelection(.enabled)
                             Button("Load current record") { Task { current[item.id] = await store.currentSummary(item) } }
@@ -355,10 +375,20 @@ struct WardrobePendingView: View {
                 Button("Discard photo draft", role: .destructive) { if let draft = discardingPhotos { do { try store.photos.discardDraft(draft.id) } catch { problem = error.localizedDescription } }; discardingPhotos = nil }
             }
             .sheet(item: $resuming) { entry in
-                if entry.garmentDraft != nil { WardrobeGarmentEditor(store: store, garment: entry.garment, resume: entry) }
+                if entry.importPhoto != nil { NavigationStack { WardrobeImportItemView(store: store, id: entry.id).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { resuming = nil } } } } }
+                else if entry.garmentDraft != nil { WardrobeGarmentEditor(store: store, garment: entry.garment, resume: entry) }
                 else { WardrobeOutfitEditor(store: store, outfit: entry.outfit, confirming: entry.confirming, resume: entry) }
             }
-            .sheet(item: $reviewing) { WardrobeRecoveryView(store: store, pending: $0) }
+            .sheet(item: $reviewing) { item in
+                if ["laundry_create", "laundry_update"].contains(item.operation) { WardrobeLaundryEditor(store: store, pending: item) }
+                else if item.operation.hasPrefix("laundry_") { NavigationStack { WardrobeLaundryDetail(store: store, id: item.entity).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { reviewing = nil } } } } }
+                else if item.operation == "pairings_create" { WardrobePairingEditor(store: store, pending: item) }
+                else if item.operation == "wardrobe_day_selection_update" {
+                    if let request = try? WardrobeDayChoiceRequest(request: item) {
+                        WardrobeDaySelectionView(store: store, day: request.day, outfitID: request.outfitID, pending: item)
+                    } else { Text("The original daily selection could not be opened. Keep the request and review its stored fields.") }
+                } else { WardrobeRecoveryView(store: store, pending: item) }
+            }
             .sheet(item: $reviewingDraft) { WardrobeRecoveryView(store: store, draft: $0) }
             .confirmationDialog("Discard this local draft?", isPresented: Binding(get: { discardingDraft != nil }, set: { if !$0 { discardingDraft = nil } }), titleVisibility: .visible) {
                 Button("Discard draft", role: .destructive) { if let draft = discardingDraft { do { try store.drafts.remove(draft.id) } catch { problem = error.localizedDescription } }; discardingDraft = nil }

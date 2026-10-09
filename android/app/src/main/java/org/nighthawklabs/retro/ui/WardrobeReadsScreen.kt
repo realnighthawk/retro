@@ -52,10 +52,11 @@ import java.time.LocalDate
 import java.util.Date
 
 @Composable
-fun WardrobeTodayScreen(store: WardrobeStore, onOutfit: (String) -> Unit) {
+fun WardrobeTodayScreen(store: WardrobeStore, entryToken: String? = null, onOutfit: (String) -> Unit) {
     var selectedDay by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var composing by rememberSaveable { mutableStateOf(false) }
     var suggesting by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(entryToken) { if (entryToken != null) { selectedDay = LocalDate.now().toString(); composing = false; suggesting = false } }
     if (suggesting) WardrobeSuggestionsScreen(store, selectedDay) { suggesting = false }
     if (composing) WardrobeOutfitEditor(store, day = selectedDay) { composing = false }
     val date = LocalDate.parse(selectedDay)
@@ -83,13 +84,16 @@ fun WardrobeTodayScreen(store: WardrobeStore, onOutfit: (String) -> Unit) {
 }
 
 @Composable
-fun WardrobeInventoryScreen(store: WardrobeStore, onGarment: (String) -> Unit) {
+fun WardrobeInventoryScreen(store: WardrobeStore, entrySearch: String = "", entryToken: String? = null, onGarment: (String) -> Unit) {
     var adding by rememberSaveable { mutableStateOf(false) }
+    var importing by rememberSaveable { mutableStateOf(false) }
+    if (importing) WardrobeImportScreen(store) { importing = false }
     if (adding) WardrobeGarmentEditor(store) { adding = false }
     var search by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("") }
     var availability by rememberSaveable { mutableStateOf("") }
     var archived by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(entryToken) { if (entryToken != null) { search = entrySearch; category = ""; availability = ""; archived = false; adding = false; importing = false } }
     val query = WardrobeInventoryQuery(search, category, availability, archived)
     val gridWidth = if (LocalDensity.current.fontScale > 1.3f) 260.dp else 140.dp
     val scope = rememberCoroutineScope()
@@ -100,6 +104,7 @@ fun WardrobeInventoryScreen(store: WardrobeStore, onGarment: (String) -> Unit) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { adding = true }) { Text("Add garment") }
+                TextButton(onClick = { importing = true }) { Text("Add from photos · ${store.drafts?.imports?.size ?: 0} to review") }
                 OutlinedTextField(value = search, onValueChange = { search = it }, label = { Text("Search garment names") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Row {
@@ -111,6 +116,11 @@ fun WardrobeInventoryScreen(store: WardrobeStore, onGarment: (String) -> Unit) {
                     TextButton(onClick = { scope.launch { store.refreshInventory(query) } }, enabled = !store.inventory.loading) { Text("Refresh") }
                 }
                 if (archived) Text("Including archived garments", style = MaterialTheme.typography.bodySmall, color = Retro.tok.stone)
+                Text("Search checks garment names, category and availability. Colour, material, warmth and wear-date search are not supported.", style = MaterialTheme.typography.bodySmall)
+                if (query != WardrobeInventoryQuery()) {
+                    Text("Name: ${search.ifEmpty { "Any" }} · Category: ${if (category.isEmpty()) "Any" else WardrobeVocabulary.title(category)} · Availability: ${if (availability.isEmpty()) "Any" else WardrobeVocabulary.title(availability)}", style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { search = ""; category = ""; availability = ""; archived = false }) { Text("Clear search filters") }
+                }
                 ReadStatus(store.inventory) { scope.launch { store.refreshInventory(query) } }
             }
         }
@@ -152,6 +162,8 @@ fun WardrobeHistoryScreen(store: WardrobeStore, onOutfit: (String) -> Unit) {
     var garments by remember { mutableStateOf<List<WardrobeSelection>>(emptyList()) }
     var picking by remember { mutableStateOf(false) }
     var insights by remember { mutableStateOf(false) }
+    var reviewing by remember { mutableStateOf(false) }
+    if (reviewing) WardrobePeriodReviewScreen(store) { reviewing = false }
     if (picking) WardrobeGarmentPicker(store, garments, true, { garments = it; garmentID = it.firstOrNull()?.id ?: "" }, maximum = 1) { picking = false }
     if (insights) WardrobeInsightsScreen(store) { insights = false }
     val query = WardrobeHistoryQuery(state = state, from = if (limited) from else "", to = if (limited) to else "", garmentID = garmentID)
@@ -164,6 +176,7 @@ fun WardrobeHistoryScreen(store: WardrobeStore, onOutfit: (String) -> Unit) {
                 TextButton(onClick = { scope.launch { store.refreshHistory(query) } }, enabled = !store.history.loading) { Text("Refresh") }
             }
             TextButton(onClick = { insights = true }) { Text("Insights") }
+            TextButton(onClick = { reviewing = true }) { Text("Wardrobe review") }
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = limited, role = Role.Checkbox, onValueChange = { limited = it })) { androidx.compose.material3.Checkbox(limited, null); Text("Limit dates", Modifier.padding(top = 12.dp)) }
             if (limited) { WardrobeDateButton("From", from) { from = it }; WardrobeDateButton("Through", to) { to = it } }
             TextButton(onClick = { picking = true }) { Text(if (garmentID.isEmpty()) "Filter by garment" else "Garment: ${garments.firstOrNull()?.name ?: "Selected garment"}") }
@@ -214,6 +227,8 @@ private fun OutfitReadCard(outfit: WardrobeOutfit, onClick: () -> Unit) {
 
 @Composable
 fun WardrobeGarmentScreen(store: WardrobeStore, id: String, onBack: () -> Unit) {
+    var care by remember(id) { mutableStateOf(false) }
+    if (care) WardrobeSettingsScreen(store, "care", id) { care = false }
     var audit by remember { mutableStateOf(false) }
     if (audit) WardrobeAuditScreen(store, "garment", id) { audit = false }
     val fallback = store.inventory.value?.items?.find { it.id == id }?.let { WardrobeGarmentResult(it) }
@@ -231,7 +246,9 @@ fun WardrobeGarmentScreen(store: WardrobeStore, id: String, onBack: () -> Unit) 
             TextButton(onClick = { audit = true }) { Text("Record history") }
         }
         read.value?.garment?.let { garment ->
-            item { WardrobeGarmentActions(store, garment, !read.loading) }
+            item { WardrobeGarmentActions(store, garment, !read.loading)
+                TextButton(onClick = { care = true }, enabled = !read.loading) { Text("Care instructions · ${if (garment.care?.confirmed == true) "Reviewed" else "Needs review"}") }
+            }
             item {
             Panel {
                 garment.mediaIDs.forEach { mediaID -> WardrobeRemotePhoto(store, mediaID, Modifier.heightIn(max = 280.dp), variant = "display", label = garment.name) }
@@ -258,6 +275,8 @@ fun WardrobeGarmentScreen(store: WardrobeStore, id: String, onBack: () -> Unit) 
 
 @Composable
 fun WardrobeOutfitScreen(store: WardrobeStore, id: String, onBack: () -> Unit) {
+    var feedback by remember(id) { mutableStateOf(false) }
+    if (feedback) WardrobeSettingsScreen(store, "feedback", id) { feedback = false }
     var audit by remember { mutableStateOf(false) }
     if (audit) WardrobeAuditScreen(store, "outfit", id) { audit = false }
     val fallback = (store.day.value?.outfits?.find { it.id == id } ?: store.history.value?.items?.find { it.id == id })?.let { WardrobeOutfitResult(it) }
@@ -275,7 +294,9 @@ fun WardrobeOutfitScreen(store: WardrobeStore, id: String, onBack: () -> Unit) {
             TextButton(onClick = { audit = true }) { Text("Record history") }
         }
         read.value?.outfit?.let { outfit ->
-            item { WardrobeOutfitActions(store, outfit, !read.loading) }
+            item { WardrobeOutfitActions(store, outfit, !read.loading)
+                TextButton(onClick = { feedback = true }, enabled = !read.loading) { Text("Outfit feedback") }
+            }
             item {
                 Panel {
                     Text(outfit.title, style = MaterialTheme.typography.headlineSmall, color = Retro.tok.ink)

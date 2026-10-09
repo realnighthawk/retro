@@ -41,6 +41,12 @@ func date(value string) error {
 	return nil
 }
 func validateGarment(g *GarmentData) error {
+	if e := validateLaundryReminder(g.LaundryReminder); e != nil {
+		return e
+	}
+	if e := validateCare(g.Care); e != nil {
+		return e
+	}
 	g.Name = strings.TrimSpace(g.Name)
 	if len(g.Name) < 1 || len(g.Name) > 100 {
 		return invalid("name must contain 1-100 bytes")
@@ -175,7 +181,9 @@ func patchFields(target any, patch map[string]json.RawMessage, allowed ...string
 	body, _ = json.Marshal(fields)
 	value := reflect.ValueOf(target).Elem()
 	value.Set(reflect.Zero(value.Type()))
-	if e := json.Unmarshal(body, target); e != nil {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if e := decoder.Decode(target); e != nil {
 		return invalid("patch has invalid field types")
 	}
 	return nil

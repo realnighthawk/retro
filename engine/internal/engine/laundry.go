@@ -503,7 +503,7 @@ func listLaundry(ctx context.Context, u *unit, in LaundryListInput) (Page[Laundr
 	result := Page[LaundryLoad]{Items: []LaundryLoad{}}
 	filters := in
 	filters.ListInput = ListInput{}
-	limit, after, e := page(in.ListInput, filters)
+	limit, after, _, e := page(in.ListInput, filters)
 	if e != nil {
 		return result, e
 	}
@@ -535,7 +535,7 @@ func listLaundry(ctx context.Context, u *unit, in LaundryListInput) (Page[Laundr
 	}
 	if len(keys) > limit {
 		keys = keys[:limit]
-		result.NextCursor = cursor(filters, keys[len(keys)-1])
+		result.NextCursor = cursor(filters, keys[len(keys)-1], "")
 	}
 	for _, key := range keys {
 		load, e := u.getLaundry(ctx, key)

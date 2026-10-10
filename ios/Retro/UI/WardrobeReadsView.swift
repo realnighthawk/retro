@@ -35,7 +35,7 @@ struct WardrobeTodayView: View {
                         NavigationLink("Daily choice history") { WardrobeAuditView(store: store, entityType: "day_selection", id: selection.id) }.frame(minHeight: 44)
                     }
                     if day.outfits.isEmpty {
-                        WardrobeEmpty(title: "No outfits for this date", message: "Planned and recorded outfits appear here.", symbol: "hanger")
+                        WardrobeEmptyState(title: "No outfits for this date", message: "Planned and recorded outfits appear here.", symbol: "hanger")
                     }
                     ForEach(day.outfits.filter { $0.id != day.selection?.outfitID }) { outfit in
                         NavigationLink {
@@ -88,13 +88,14 @@ struct WardrobeInventoryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 NavigationLink("Saved pairings and looks") { WardrobePairingsView(store: store) }.frame(minHeight: 44)
+                NavigationLink("Maintain several garments") { WardrobeBatchView(store: store) }.frame(minHeight: 44)
                 NavigationLink("Laundry loads") { WardrobeLaundryView(store: store) }.frame(minHeight: 44)
                 NavigationLink("Laundry check-in") { WardrobeLaundryCheckInView(store: store) }.frame(minHeight: 44)
                 Button("Add from photos · \(store.drafts.imports.count) to review") { importing = true }.frame(minHeight: 44)
                 Button("Describe a search") { language = WardrobeLanguageContext(inventory: query) }.frame(minHeight: 44)
                 ForEach(Array(unhandled.enumerated()), id: \.offset) { _, value in Text("Not applied: " + value).font(.footnote) }
                 if query != WardrobeInventoryQuery() || !unhandled.isEmpty {
-                    Text("Name: \(query.search.isEmpty ? "Any" : query.search) · Category: \(query.category.isEmpty ? "Any" : WardrobeVocabulary.title(query.category)) · Availability: \(query.availability.isEmpty ? "Any" : WardrobeVocabulary.title(query.availability))").font(.footnote)
+                    Text(query.activeFilters.isEmpty ? "Filters: any garment" : "Filters: " + query.activeFilters.joined(separator: " · ")).font(.footnote)
                     Button("Clear search and filters") { query = WardrobeInventoryQuery(); unhandled = [] }.frame(minHeight: 44)
                 }
                 HStack {
@@ -111,15 +112,38 @@ struct WardrobeInventoryView: View {
                             Text("Any availability").tag("")
                             ForEach(WardrobeVocabulary.availability, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) }
                         }
+                        Picker("Wash method", selection: $query.washMethod) {
+                            Text("Any wash method").tag("")
+                            ForEach(WardrobeInventoryQuery.washMethods, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) }
+                        }
+                        Toggle("Favourites only", isOn: Binding(get: { query.favourite == true }, set: { query.favourite = $0 ? true : nil }))
+                        Picker("Care", selection: Binding(get: { query.careConfirmed.map { $0 ? "yes" : "no" } ?? "" }, set: { query.careConfirmed = $0 == "yes" ? true : $0 == "no" ? false : nil })) {
+                            Text("Any care state").tag("")
+                            Text("Care reviewed").tag("yes")
+                            Text("Care needs review").tag("no")
+                        }
                         Toggle("Include archived", isOn: $query.includeArchived)
-                    } label: { Text(query.availability.isEmpty ? "Availability" : WardrobeVocabulary.title(query.availability)) }
+                    } label: { Text("More filters").font(.subheadline) }
                     .frame(minHeight: 44)
+                    Spacer()
+                    Menu {
+                        Picker("Sort", selection: $query.sort) {
+                            ForEach(WardrobeInventoryQuery.sorts, id: \.self) { Text(WardrobeInventoryQuery(sort: $0).sortTitle).tag($0) }
+                        }
+                    } label: { Text(query.sortTitle).font(.subheadline) }
+                    .frame(minHeight: 44)
+                }
+                DisclosureGroup("Search brand, notes, colour or season") {
+                    TextField("Brand contains", text: $query.brand)
+                    TextField("Notes contain", text: $query.notes)
+                    TextField("Colour, exact match", text: $query.colour).textInputAutocapitalization(.never)
+                    TextField("Season, exact match", text: $query.season).textInputAutocapitalization(.never)
+                    Text("Colour and season match one whole recorded value. Every field here is optional and is sent to the engine with the search.").font(.footnote)
                 }.font(.subheadline)
-                if query.includeArchived { Text("Including archived garments").font(.footnote).foregroundStyle(Tok.faint) }
                 WardrobeReadStatus(state: store.inventory) { await store.refreshInventory(query) }
                 if let page = store.inventory.value {
                     if page.items.isEmpty {
-                        WardrobeEmpty(title: query == WardrobeInventoryQuery() ? "Your wardrobe is empty" : "No matching garments",
+                        WardrobeEmptyState(title: query == WardrobeInventoryQuery() ? "Your wardrobe is empty" : "No matching garments",
                                       message: query == WardrobeInventoryQuery() ? "Your clothes will appear here." : "Try a different search or filter.", symbol: "hanger")
                     }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: textSize.isAccessibilitySize ? 280 : 140), spacing: 14)], spacing: 14) {
@@ -133,6 +157,12 @@ struct WardrobeInventoryView: View {
                     if page.nextCursor != nil {
                         Button("Load more garments") { Task { await store.moreInventory() } }
                             .buttonStyle(QuietButtonStyle()).disabled(store.inventory.loading)
+                    }
+                    if let total = page.totalMatches {
+                        Text(store.inventory.cached
+                             ? "Previously loaded matching garments: \(page.items.count) of \(total)."
+                             : Int64(page.items.count) >= total ? "All \(total) matching garments are shown. This is one read of the current records."
+                             : "Showing \(page.items.count) of \(total) matching garments at this time.").font(.footnote).foregroundStyle(Tok.faint)
                     }
                 }
             }.padding(20)
@@ -198,7 +228,7 @@ struct WardrobeHistoryView: View {
                 WardrobeReadStatus(state: store.history) { await store.refreshHistory(input) }
                 if let page = store.history.value {
                     if page.items.isEmpty {
-                        WardrobeEmpty(title: "No outfits here yet", message: "Your outfit history appears here.", symbol: "clock")
+                        WardrobeEmptyState(title: "No outfits here yet", message: "Your outfit history appears here.", symbol: "clock")
                     }
                     let dates = Array(Set(page.items.map(\.day))).sorted(by: >)
                     ForEach(dates, id: \.self) { date in
@@ -260,7 +290,7 @@ private struct WardrobeOutfitCard: View {
     }
 }
 
-private struct WardrobeGarmentDetail: View {
+struct WardrobeGarmentDetail: View {
     let store: WardrobeStore
     let initial: WardrobeGarment
     @State private var read = WardrobeRead<WardrobeGarmentResult>()
@@ -309,6 +339,11 @@ private struct WardrobeGarmentDetail: View {
                     detail("Formality", garment.formality)
                     detail("Material", garment.material)
                     detail("Brand", garment.brand)
+                    detail("Pattern", garment.pattern)
+                    detail("Style", garment.style)
+                    detail("Fit", garment.fit)
+                    if let purchase = garment.purchase { detail("Purchase", purchase.summary) }
+                    if let evidence = garment.purchase?.evidence { detail("Purchase evidence", evidence) }
                     if garment.favourite == true { detail("Favourite", "Yes") }
                     detail("Days worn", "\(garment.wearDays)")
                     detail("Outfit events", "\(garment.wearEvents)")
@@ -429,7 +464,7 @@ struct WardrobeReadStatus<Value>: View {
     }
 }
 
-private struct WardrobeEmpty: View {
+private struct WardrobeEmptyState: View {
     let title: String
     let message: String
     let symbol: String

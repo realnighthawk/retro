@@ -267,7 +267,7 @@ func listOutfits(ctx context.Context, u *unit, in OutfitListInput) (Page[Outfit]
 	result := Page[Outfit]{Items: []Outfit{}}
 	filters := in
 	filters.ListInput = ListInput{}
-	limit, after, e := page(in.ListInput, filters)
+	limit, after, _, e := page(in.ListInput, filters)
 	if e != nil {
 		return result, e
 	}
@@ -312,7 +312,7 @@ func listOutfits(ctx context.Context, u *unit, in OutfitListInput) (Page[Outfit]
 	}
 	if len(ids) > limit {
 		ids = ids[:limit]
-		result.NextCursor = cursor(filters, ids[len(ids)-1])
+		result.NextCursor = cursor(filters, ids[len(ids)-1], "")
 	}
 	for _, v := range ids {
 		o, e := u.getOutfit(ctx, v)

@@ -11,11 +11,15 @@ struct WardrobeSuggestQuery: Codable, Hashable {
     var variant = 0
     var expectedPreferencesVersion: Int64? = nil
     var swapRole: String? = nil
+    // Ranking uses a temperature only when the owner gives one, and only against recorded warmth tags.
+    var temperatureC: Int? = nil
+    var precipitation: Bool? = nil
     enum CodingKeys: String, CodingKey {
-        case day, occasion, warmth, variant
+        case day, occasion, warmth, variant, precipitation
         case requiredIDs = "required_ids", excludedIDs = "excluded_ids", excludedCombinations = "excluded_combinations"
         case expectedPreferencesVersion = "expected_preferences_version"
         case swapRole = "swap_role"
+        case temperatureC = "temperature_c"
     }
     func validate() throws {
         guard WardrobeDraftValidation.date(day) != nil, occasion.utf8.count <= 100, ["", "light", "mid", "warm"].contains(warmth),
@@ -136,6 +140,100 @@ struct WardrobeCategoryUsage: Codable, Identifiable {
     var id: String { category }
     enum CodingKeys: String, CodingKey { case category, garments; case wornGarments = "worn_garments", wearEvents = "wear_events" }
 }
+// Money is formatted from the engine's exact minor units and exponent; nothing is converted or summed.
+enum WardrobeMoney {
+    static func text(minor: Int64, exponent: Int, currency: String?) -> String {
+        let exponent = max(0, min(exponent, 3))
+        let scale = [Int64(1), 10, 100, 1000][exponent]
+        let whole = minor / scale, fraction = minor % scale
+        let amount = exponent == 0 ? "\(whole)" : "\(whole)." + String(format: "%0\(exponent)lld", fraction)
+        return currency.map { "\(amount) \($0)" } ?? amount
+    }
+}
+struct WardrobeCostPerWear: Codable, Equatable {
+    let currency: String
+    let amountMinor: Int64
+    let currencyExponent: Int
+    let wearEvents: Int64
+    enum CodingKeys: String, CodingKey {
+        case currency, wearEvents = "wear_events"
+        case amountMinor = "amount_minor", currencyExponent = "currency_exponent"
+    }
+    var text: String { WardrobeMoney.text(minor: amountMinor, exponent: currencyExponent, currency: currency) }
+}
+struct WardrobeGarmentUsage: Codable, Identifiable, Equatable {
+    let garmentID: String
+    let name: String
+    let category: String
+    let archived: Bool
+    let wearEvents: Int64
+    let wearDays: Int64
+    let costPerWear: WardrobeCostPerWear?
+    var id: String { garmentID }
+    enum CodingKeys: String, CodingKey {
+        case name, category, archived
+        case garmentID = "garment_id", wearEvents = "wear_events", wearDays = "wear_days", costPerWear = "cost_per_wear"
+    }
+}
+struct WardrobeUnwornGarment: Codable, Identifiable, Equatable {
+    let garmentID: String
+    let name: String
+    let category: String
+    let archived: Bool
+    let createdOn: String
+    let wearEvents: Int64
+    let lastWornOn: String?
+    var id: String { garmentID }
+    var neverWorn: Bool { lastWornOn == nil }
+    enum CodingKeys: String, CodingKey {
+        case name, category, archived
+        case garmentID = "garment_id", createdOn = "created_on", wearEvents = "wear_events", lastWornOn = "last_worn_on"
+    }
+}
+struct WardrobeColourUsage: Codable, Identifiable, Equatable {
+    let colour: String
+    let garments: Int64
+    let wornGarments: Int64
+    let wearEvents: Int64
+    var id: String { colour }
+    enum CodingKeys: String, CodingKey { case colour, garments; case wornGarments = "worn_garments", wearEvents = "wear_events" }
+}
+struct WardrobeUsageTrend: Codable, Identifiable, Equatable {
+    let weekStart: String
+    let wearEvents: Int64
+    let wearDays: Int64
+    var id: String { weekStart }
+    enum CodingKeys: String, CodingKey { case weekStart = "week_start", wearEvents = "wear_events", wearDays = "wear_days" }
+}
+struct WardrobeRatingBucket: Codable, Identifiable, Equatable {
+    let rating: Int64
+    let feedback: Int64
+    var id: Int64 { rating }
+}
+struct WardrobeFeedbackSummary: Codable, Equatable {
+    let records: Int64
+    let rated: Int64
+    let comfortRated: Int64
+    let styleRated: Int64
+    let comments: Int64
+    let ratings: [WardrobeRatingBucket]
+    let comfort: [WardrobeRatingBucket]
+    let style: [WardrobeRatingBucket]
+    enum CodingKeys: String, CodingKey {
+        case records, rated, comments, ratings, comfort, style
+        case comfortRated = "comfort_rated", styleRated = "style_rated"
+    }
+}
+// Plans and saved selections are reported separately from confirmed wears.
+struct WardrobeSelectionSummary: Codable, Equatable {
+    let selectedDays: Int64
+    let confirmedDays: Int64
+    let clearedDays: Int64
+    let plannedOutfits: Int64
+    enum CodingKeys: String, CodingKey {
+        case selectedDays = "selected_days", confirmedDays = "confirmed_days", clearedDays = "cleared_days", plannedOutfits = "planned_outfits"
+    }
+}
 struct WardrobeAnalysis: Codable {
     let from: String?
     let to: String?
@@ -144,9 +242,27 @@ struct WardrobeAnalysis: Codable {
     let garments: Int64
     let unwornGarments: Int64
     let categories: [WardrobeCategoryUsage]
+    // Optional so a response from an older engine still decodes.
+    var mostWorn: [WardrobeGarmentUsage]? = nil
+    var leastWorn: [WardrobeGarmentUsage]? = nil
+    var rankedLimit: Int64? = nil
+    var notWornInRange: [WardrobeUnwornGarment]? = nil
+    var notWornInRangeTotal: Int64? = nil
+    var neverWorn: [WardrobeUnwornGarment]? = nil
+    var neverWornTotal: Int64? = nil
+    var colours: [WardrobeColourUsage]? = nil
+    var coloursTruncated: Bool? = nil
+    var weeks: [WardrobeUsageTrend]? = nil
+    var weeksTruncated: Bool? = nil
+    var feedback: WardrobeFeedbackSummary? = nil
+    var selections: WardrobeSelectionSummary? = nil
     enum CodingKeys: String, CodingKey {
-        case from, to, garments, categories
+        case from, to, garments, categories, colours, weeks, feedback, selections
         case outfitEvents = "outfit_events", wearDays = "wear_days", unwornGarments = "unworn_garments"
+        case mostWorn = "most_worn", leastWorn = "least_worn", rankedLimit = "ranked_limit"
+        case notWornInRange = "not_worn_in_range", notWornInRangeTotal = "not_worn_in_range_total"
+        case neverWorn = "never_worn", neverWornTotal = "never_worn_total"
+        case coloursTruncated = "colours_truncated", weeksTruncated = "weeks_truncated"
     }
 }
 struct WardrobeAuditQuery: Codable, Hashable {

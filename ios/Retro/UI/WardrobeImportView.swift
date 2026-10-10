@@ -66,8 +66,7 @@ struct WardrobeImportItemView: View {
     @State private var problem: String?
     @State private var work: Task<Void, Never>?
     @State private var busy = false
-    @State private var hints: [WardrobeDuplicateHint] = []
-    @State private var coverage: String?
+    @State private var scan: WardrobeDuplicateScan?
     private var entry: WardrobeSavedDraft? { store.drafts.items.first { $0.id == id } }
     var body: some View {
         List {
@@ -79,11 +78,16 @@ struct WardrobeImportItemView: View {
                     Button("Review garment details") { editor = true }.disabled(busy || entry.importMediaID != nil)
                     if entry.garment == nil && entry.dependency == nil && !store.writes.contains(entry.entityID) {
                         Button("Choose an existing garment") { choosing = true }.disabled(busy)
-                        Button("Check for similar items on this phone", action: compare).disabled(bytes == nil || busy)
-                        if let coverage { Text(coverage).font(.footnote) }
-                        ForEach(hints) { hint in
+                        Button("Check the whole wardrobe for similar items", action: compare).disabled(bytes == nil || busy)
+                        if let scan { Text(scan.summary).font(.footnote) }
+                        ForEach(scan?.hints ?? []) { hint in
                             Button {
                                 run {
+                                    // The hint belongs to one scan of one photo: the same bytes must
+                                    // still be this draft's photo, and the record must still match.
+                                    guard let scan, let bytes, scan.matches(source: bytes) else {
+                                        throw WardrobeWriteError("This photo changed since the check. Check again.")
+                                    }
                                     let fresh = try await store.importGarment(hint.id)
                                     guard fresh.version == hint.photo.version, (fresh.mediaIDs ?? []).contains(hint.photo.mediaID) else { throw WardrobeWriteError("That item or its photo changed. Check again.") }
                                     candidate = fresh
@@ -95,7 +99,6 @@ struct WardrobeImportItemView: View {
                                 }.frame(minHeight: 44)
                             }.disabled(busy)
                         }
-                        if !hints.isEmpty { Text("These are the closest available photos to check, not a duplicate verdict. Save a new garment if they are different.").font(.footnote) }
                     }
                     if store.writes.contains(entry.entityID) { Text("Garment save pending. Check Pending saves for errors or retry.") }
                     if store.photos.contains(entry.entityID) { Text("Photo work is pending. Its saved request and bytes are kept for retry.") }
@@ -114,7 +117,7 @@ struct WardrobeImportItemView: View {
             WardrobeImportPicker(store: store) { garment in choosing = false; candidate = garment }
         }
         .confirmationDialog("Use \(candidate?.name ?? "this garment")? This replaces the unsaved new garment details.", isPresented: Binding(get: { candidate != nil }, set: { if !$0 { candidate = nil } }), titleVisibility: .visible) {
-            if let candidate { Button("Use existing garment") { self.candidate = nil; run { try await store.useExistingImport(id, garment: candidate); hints = []; coverage = nil } } }
+            if let candidate { Button("Use existing garment") { self.candidate = nil; run { try await store.useExistingImport(id, garment: candidate); scan = nil } } }
         }
         .confirmationDialog("Remove this local import item? Queued garment saves and accepted photo work continue. An unaccepted photo draft stays in Pending saves.", isPresented: $removing, titleVisibility: .visible) {
             Button("Remove local import", role: .destructive) { do { try store.drafts.remove(id); dismiss() } catch { problem = error.localizedDescription } }
@@ -130,25 +133,25 @@ struct WardrobeImportItemView: View {
         }
     }
     private func compare() {
-        guard let bytes else { return }
-        hints = []; coverage = nil
-        let loaded = store.inventory.value?.items.filter { $0.archivedAt == nil } ?? []
-        // shortcut: check at most 40 loaded garments with cached thumbnails; add a local index if wardrobes outgrow paging.
-        var remaining = 16 * 1024 * 1024
-        let inputs = loaded.prefix(40).compactMap { garment -> WardrobeDuplicatePhoto? in
-            guard let media = garment.mediaIDs?.first, let data = store.photos.cachedThumbnail(media), data.count <= remaining else { return nil }
-            remaining -= data.count
-            return WardrobeDuplicatePhoto(id: garment.id, name: garment.name, version: garment.version, mediaID: media, bytes: data)
-        }
-        coverage = "Checking \(inputs.count) cached photos among \(loaded.count) loaded garments (up to 40 items / 16 MiB). Missing photos and other pages are not checked."
-        guard !inputs.isEmpty else { return }
+        guard let bytes, let source = entry?.importPhoto else { return }
+        scan = nil
         run {
-            let timeout = Task { try? await Task.sleep(for: .seconds(20)); if !Task.isCancelled { work?.cancel(); problem = "Image comparison timed out. You can still create a garment." } }
-            defer { timeout.cancel() }
-            let result = try await WardrobeDuplicates.compare(bytes, photos: inputs)
-            guard store.isCurrentOwner, !Task.isCancelled, entry?.importPhoto != nil else { return }
-            hints = result
-            coverage = "Checked \(inputs.count) cached photos among \(loaded.count) loaded garments (up to 40 items / 16 MiB). Missing photos and other pages were not checked."
+            // The scan is bound to these exact bytes; a finished or replaced draft never keeps a scan.
+            let result = try await Self.scan(store: store, bytes: bytes)
+            guard store.isCurrentOwner, !Task.isCancelled, entry?.importPhoto?.id == source.id else { return }
+            scan = result
+        }
+    }
+    private static func scan(store: WardrobeStore, bytes: Data) async throws -> WardrobeDuplicateScan? {
+        try await withThrowingTaskGroup(of: WardrobeDuplicateScan?.self) { group in
+            group.addTask { await store.duplicateScan(source: bytes) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(60))
+                throw WardrobeWriteError("The wardrobe check took too long. It stopped without changing anything.")
+            }
+            let first = try await group.next() ?? nil
+            group.cancelAll()
+            return first
         }
     }
 }

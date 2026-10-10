@@ -4,8 +4,14 @@ Started on 2026-10-08 from the approved [feature checklist](retro-feature-checkl
 As of 2026-10-09, new client implementation is **iOS only**; earlier Android work remains in source.
 Keep on-device Apple Intelligence/native processing for suitable work and the existing agent endpoint for
 connected context, scheduled execution and heavier/specialist processing. Apple Private Cloud Compute is excluded.
+Since 2026-10-10 a language task can also run on the connected agent as a **visible, opt-in fallback** when the
+device cannot read a request itself, holding the same validator and provenance rules as the on-device path; see
+[language tasks](retro-language-tasks.md). That is not an automatic cloud fallback and not a change to what runs
+where by default.
 Every feature keeps ordinary engine validation, durable writes and manual fallback. The MinIO budget stays 10 GB;
-no deployment is performed as part of these source implementation phases.
+infrastructure deployment is outside these source implementation phases. The separately requested signed iPhone
+build/install/launch through P3.4 passed on 2026-10-09; feature suites and live backend/model flows remain unverified.
+For the next implementation agent, start with the [P4–P6 handoff](retro-p4-p6-handoff.md).
 
 ## P1 — Shared records and intelligence integration foundations
 
@@ -182,8 +188,9 @@ reads only but use existing agent permissions rather than server-enforced task-s
 
 Source-pointer/unit/scope/date/freshness/refinement/recovery/cancellation tests and `outfit-context.json` are authored.
 Xcode project generation includes the new files. Tests, native/gateway builds, live connection/model/device checks
-and deployment remain deferred. Deploy the new gateway and iOS client together. Automatic forecast-driven ranking,
-precipitation/garment suitability and temperature-sensitivity rules still require further N05 work.
+and deployment remain deferred. Deploy the new gateway and iOS client together. Temperature sensitivity is now
+implemented (see the N05 section below); automatic forecast-driven ranking, precipitation/water-resistance
+suitability and layering rules still require further N05 work.
 
 P2.5 is implemented in engine/iOS/harness worker source on 2026-10-09. Today → **Daily automation** edits a separate
 versioned singleton: enabled, morning/previous-evening mode, local hour/minute, fixed IANA time zone and an optional
@@ -353,8 +360,10 @@ apply. Generic remote permissions remain those of the agent, not a newly enforce
 
 `laundry-planning.json` and focused native source/scope/group/alias/date/DST/freshness/recovery/frozen-save regressions
 are authored, unrun. P3.4 reuses all **46 operations**, with no engine/gateway/router/migration/provider/chart/storage
-change. Xcode project generation includes the new sources; builds, suites, model/agent/device checks and deployment
-remain deferred. P3.1–P3.4 are implemented in source. Notification delivery and richer scheduling/provider formats
+change. Xcode project generation includes the new sources. On the owner's subsequent 2026-10-09 deployment request,
+the signed Debug build containing P1–P3.4 passed, installed and launched on the iPhone 17 Pro; its running process
+was confirmed. Suites, migrations, backend integration, actual model/agent flows and full device/accessibility checks
+remain unrun. P3.1–P3.4 are implemented in source. Notification delivery and richer scheduling/provider formats
 remain follow-ups; P4 capture/discovery/maintenance is the next implementation phase.
 
 ## P4 — Capture, discovery and wardrobe maintenance
@@ -362,20 +371,282 @@ remain follow-ups; P4 capture/discovery/maintenance is the next implementation p
 Outcome: faster garment entry, complete search, useful reviews and dependable multi-item maintenance.
 Checklist coverage: N04, N09, N10, N11 and the remaining N12 purchase/style metadata.
 
-- [ ] Add richer metadata, amount/currency/evidence semantics, full server filters/sort and real ranked usage lists.
+The [handoff](retro-p4-p6-handoff.md#p4--recommended-source-slices) defines the recommended P4.1–P4.6 sequence,
+existing source entry points and acceptance criteria. Start with P4.1 records, then search, analytics, capture,
+purchase reconciliation and bulk maintenance.
+
+P4.1 is implemented in engine/iOS source on 2026-10-09. The ordinary garment record gained optional pattern, style,
+owner-supplied fit and one purchase record. Brand, material, colours, seasons, favourites and confirmed care were
+already present. Pattern, style and fit are bounded free text like subtype/material/brand: the owner's own
+description, not a claim that appearance proves anything, and absent means unknown. No migration was needed because
+garment attributes are stored as JSONB; both existing operations, `garments_create` and `garments_update`, carry the
+new fields, so the registry stays at **46**.
+
+The purchase record defines money before saving. It holds an ISO date, a source (`manual`, `receipt`, `connected`),
+bounded evidence text (required for the non-manual sources, mirroring care labels), an optional ISO 4217 currency and
+an exact integer `amount_minor` in that currency's minor units. Callers may supply the owner-typed amount as a plain
+decimal (`"199.9"`); the engine parses it with `strconv` — never floating point — against the currency exponent, and
+rejects precision the currency does not have rather than rounding. Exponents come from a short table of the
+non-two-decimal ISO currencies with a documented two-decimal default; the derived `currency_exponent` is recomputed
+on every write, ignored if supplied, and returned so clients format without duplicating the table. An amount requires
+its currency, a currency may stand alone as a partial record, and currencies are never converted, summed or inferred.
+Absent means unknown; an explicitly recorded zero stays zero and is never treated as missing.
+
+Omission retains values and `null` clears the purchase record; an all-empty record normalizes to absent so the
+ordinary patch clears it. Audit snapshots carry the new fields automatically, and historical outfit snapshots keep
+the metadata and purchase facts confirmed at the time. On iOS, pattern/style/fit are editable text fields and the
+purchase section covers date, amount, currency, source and evidence. Every new stored field is optional, so responses
+and saved drafts written before P4.1 still decode, and unchanged values are omitted from patches; selected-field
+recovery can reapply or clear each field, including the purchase record as a whole. Android wire compatibility is
+unchanged and no Android work was added. `WardrobeGarmentRecordTests`, the engine unit/money cases, a queued-record
+integration test and `garment-records.json` are authored. Go formatting, the focused engine unit tests, 46-operation
+OpenAPI regeneration and Xcode project generation ran; the simulator app and test targets compiled. Integration and
+migration execution, device builds, suite runs and live flows remain deferred.
+
+P4.2 is implemented in engine/iOS source on 2026-10-09. `garments_list` filters on name, brand and notes substrings;
+colour and season as whole recorded values (case-insensitive, matched element-wise against the stored lists);
+category; availability; favourite; confirmed wash method; whether care has been reviewed; and archive state. Every
+predicate is optional, and an absent filter is never a wildcard value. Four sort orders are defined with a stable
+tie-break: `id` (default), `name`, `recent` (updated) and `added` (created), the latter three breaking ties by ID in
+the same direction as the order.
+
+Cursors are keyset positions, not offsets. The cursor carries the sort key of the last returned record plus its ID,
+so ties neither repeat nor skip, and its scope hash covers the complete filter *and sort* request: changing any
+predicate or the sort rejects the old cursor as `invalid_input` rather than returning a mixed result. Timestamp
+cursors are parsed as instants and compared as `timestamptz`, so paging stays exact below one second. The list also
+reports `total_matches` — counted in the same repeatable-read transaction as the page — so clients can disclose
+coverage; it is documented as one read of the current records, not an immutable multi-page snapshot, and the
+default/maximum page size remains 50/200.
+
+iOS adds brand, notes, colour, season, favourite, wash-method and care-state controls, a sort menu, an active-filter
+summary and a coverage line that never claims completeness for a cached page. Text filters debounce like the name
+search. The on-device interpretation now returns the same editable filters — including brand, colour, season, notes,
+favourite, wash method and care state — validated before use, with unsupported conditions still listed as "Not
+applied" instead of being dropped; the model is instructed to copy colours and seasons verbatim and to keep material,
+warmth, subtype, similarity and wear dates in that unsupported list. Manual controls and manual search are unchanged
+and need no model. No connected search adapter was added: the local filters cover the documented predicates, and the
+existing generic agent remains available if a future predicate genuinely needs external data. Existing account,
+revision and cancellation fencing is unchanged, and the second increment's cursor/limit semantics are untouched.
+
+`WardrobeSearchTests`, the engine search/paging integration test and the `inventory.json` coverage field are
+authored. Focused engine unit tests, formatting, 46-operation OpenAPI regeneration and Xcode project generation ran;
+the simulator app and test targets compiled. Integration/migration execution, Swift suite runs, device builds and
+live flows remain deferred.
+
+P4.3 is implemented in engine/iOS source on 2026-10-09. `wardrobe_analyze` now returns ranked usage, unworn
+lists, colour distribution, weekly trends, an explicit-feedback summary and separate selection/plan counts
+alongside the existing counts and category usage; no new operation or migration was needed, so the registry
+stays at **46**. Only outfits whose *current* state is `worn` count as wears, which is what makes voiding,
+restoring and correcting a record move every figure together. Plans, saved selections, viewed records and
+ratings never become wear events or ratings; plans and selections are counted in their own summary.
+
+Ranked usage returns the most and least worn garments with in-range wear events and distinct wear days, each
+capped at 20 with `ranked_limit` disclosed. Garments with no in-range wear are excluded from the ranked lists
+entirely so an unworn piece can never occupy a "most worn" row. Cost per wear is per garment and per currency:
+it divides the recorded `amount_minor` by that garment's confirmed wears on or before the review end date,
+rounds to the nearest minor unit, discloses its own denominator, and is absent when either the price or a
+confirmed wear is missing — never zero, and never summed across currencies.
+
+The unworn lists are ordered oldest-first and capped at 50 with their full totals; a garment not worn in the
+range reports its last wear on or before the end date, while `never_worn` (a strict subset) covers garments
+with no confirmed wear at all, so a piece worn last month is visibly different from one never worn. Colours
+distribute recorded tags case-insensitively over the inventory and its in-range wears, note that a multi-colour
+garment counts under each tag, and cap at 100 entries with a truncation flag. Weekly buckets start on Monday
+and keep the most recent 104 weeks with an explicit truncation flag; an unbounded review starts from the
+earliest confirmed wear. Feedback summaries count records, rated/comfort/style coverage, comments and rating
+buckets for worn outfits in range only.
+
+iOS shows the ranked lists, both unworn lists, the colour distribution, recent weekly buckets and the
+feedback/selection split, and each entry links to the ordinary garment detail (which reads the current record
+before showing it). The deterministic summary states the facts and discloses every cap, and it refuses a
+response whose category totals, unworn totals, ranked counts, cost-per-wear denominator, rating buckets or
+period do not agree. An optional **Explain this review on device** button sends only the already-validated
+summary sentence to the on-device model, which is instructed to add no causes, garments or coverage; the model
+path is labelled as commentary and the deterministic figures stand alone without it. `WardrobeUsageReviewTests`,
+the analytics integration test and `usage-review.json` are authored. Focused engine unit tests, formatting,
+46-operation OpenAPI regeneration and Xcode project generation ran; the simulator app and test targets compiled.
+Integration/migration execution, Swift suite runs, device builds and live flows remain deferred, so the new
+analytics SQL and the new native checks are authored rather than verified.
+P4.4 is implemented in iOS source on 2026-10-09. Similar-item checks now walk the **complete active inventory**
+instead of one cached page: the client pages `garments_list` (200 per request, the existing keyset cursor) up to a
+2000-garment index limit and uses the engine's `total_matches` to decide whether the walk was complete, so
+completeness is never claimed from a single page. Each candidate carries its garment ID, name, exact version and
+primary media ID.
+
+Comparison is planned locally: cached thumbnails are used first under a 16 MiB byte budget, then up to 120
+thumbnails are fetched within the scan, and every candidate that is not compared is counted — garments without a
+photo and candidates skipped by the budget or a failed fetch. The returned scan states the numbers it actually
+covered, discloses a truncated index, and repeats that the closest matches are photos to review, never a duplicate
+verdict. Nothing is merged, deleted or written by a scan.
+
+Every hint is bound to the source photo bytes by SHA-256 checksum and to the pinned Vision feature-print revision,
+and applying one still re-reads the garment and requires its exact version and the same primary photo before the
+ordinary "use this existing garment" confirmation, which only replaces the *unsaved* new-garment details. A
+cancelled scan, an account change, a finished draft or replaced photo bytes cannot apply a stale hint, and the
+whole scan is cancelled on dismissal or background.
+
+Text and label extraction was broadened to match what the screen already claimed: it now proposes brand, material,
+pattern, style, fit, colours and seasons in addition to name, category, subtype and notes, each copied from the
+owner's own words or the label. A deterministic literal check then drops every proposed value the supplied text does
+not actually contain and reports it as "not proposed" instead of offering it, so a plausible-looking brand or
+material can never enter the form unstated; case differences are ignored and multi-word values must appear as the
+stated phrase. Warmth, price and purchase details, authenticity, laundry state and care instructions are still never
+proposed, nothing is guessed from a garment photo, and no direct model image path is added — feature prints stay on
+Vision with a pinned revision. Applying a suggestion still replaces only the fields the owner selects, and unknown
+attributes remain unknown. Manual entry and the resumable import flow are unchanged and need neither Apple
+Intelligence nor the agent. `WardrobeDuplicateTests` and the extended assistance tests are authored. No engine,
+contract, migration, gateway or storage change is needed; the registry stays at **46** and the generated contract
+is byte-identical. Xcode project generation and the simulator app/test compiles ran; Swift suite runs,
+integration/device checks and live flows remain deferred.
+P4.5 is implemented in iOS source on 2026-10-09 for the **local** half. The garment form's purchase section gains
+**Read a receipt or price label**: the owner scans a receipt (local Vision text recognition, no upload) or types
+what it says, and the on-device model reads only the purchase date, the final total, the currency and the merchant
+from that text. A deterministic gate then verifies every figure against the text before offering it. Totals are
+normalized only when they read one way — `1,234.56` becomes `1234.56`, while `1,50` and a bare `12,345` are refused
+because they mean different numbers in different countries. A currency is proposed only when the receipt states a
+three-letter code or spells out an unambiguous name such as "US dollars"; `$` or a bare "dollar" is reported as
+"choose the currency yourself" instead of being guessed. A date is accepted as an ISO date or a date spelled with a
+month name (normalized for the record), and an all-numeric `03/02/2026` is never converted. A merchant the text does
+not name is dropped. Everything dropped is listed, and a total with no currency cannot be applied.
+
+Applying fills only the open form's purchase record — date, amount, currency, `source: "receipt"` and the reviewed
+recognized text as the bounded evidence the record keeps — and never saves: the ordinary garment save with its
+frozen request, version check and rejected-field recovery still owns persistence, so the owner reviews the fields
+and the record together. Reading is account-, form- and cancellation-fenced with the existing 20-second bound, so a
+late or changed result cannot apply. Retries cannot duplicate a purchase: the purchase is one attribute of one
+garment and the save is versioned and idempotent, so re-applying the same receipt produces no change. Manual entry
+of every purchase field is unchanged and needs no model.
+
+**Connected purchase reconciliation is deferred, deliberately.** The handoff requires inspecting real tools/result
+schemas before building that adapter, and provider access is not established. Source inspection of the sibling
+harness found no purchase, order or receipt capability: the only "receipt" in the gateway MCP contract is P2.5's
+notification-delivery receipt, and the generic `ask_agent` remains the sole path with no typed purchase result
+schema. Writing an adapter now would mean inventing that schema, so the local path stands alone and the connected
+one stays open until a real connection exposes actual purchase records. Consequently, matching one receipt's line
+items to several garments is also not implemented: each reading applies to the garment already being edited.
+
+`WardrobeReceiptTests` is authored (amount normalization, currency and date literalness, dropped-value reporting,
+selective application, repeat-application stability and the evidence requirement). No engine, contract, migration,
+gateway or chart change is needed; the registry stays at **46** and the generated contract is byte-identical. Xcode
+project generation and the simulator app/test compiles ran; Swift suite runs, device/model checks and live flows
+remain deferred.
+P4.6 is implemented in iOS source on 2026-10-09. Wardrobe → **Maintain several garments** lists garments with
+explicit checkboxes (paged, filterable, with per-item reasons shown for anything that cannot take the chosen
+action) and offers six real maintenance actions: mark available, mark needs wash, add to favourites, remove from
+favourites, archive and restore. Restore lists archived garments; every other action lists active ones. An item that
+is already in the requested state, is archived when an edit would be refused, or already has a pending save is left
+out with its reason rather than written as a no-op, and the plan stops at the queue's own 100-item budget, reporting
+every garment it could not include.
+
+Review happens before anything is queued: the plan shows each garment, its current state, its exact version and the
+action, and archiving is confirmed explicitly because it hides the garment until restored. A batch writes nothing
+itself — it builds one frozen request per item (`id`, `expected_version`, and the patch for edits) and hands each to
+the existing durable queue, so one-pending-write-per-entity, the frozen payload, the per-item retry/rejection rules
+and the account fence are all the queue's, not the batch's. Photos, laundry, imports and pairings keep their own
+single-item queues and are not batched.
+
+Outcomes are reported per garment from the queue's own state — waiting, sending, waiting to retry, refused with the
+engine's message, saved, or no longer pending — and a queued item is never presented as saved; if the session never
+saw the acknowledgement, the copy says to open the record instead of claiming success. Re-running the same selection
+is refused per item rather than duplicating intents, relaunching keeps refused and retrying items with their original
+identities, and a signed-out client sends nothing.
+
+Rotation, background image processing and reanalysis are **not** included, and the three are not blocked equally.
+Normalization already applies the photo's EXIF orientation, so imported photos arrive upright; what remains is rare
+manual correction, which is achievable today by uploading a rotated copy as new media (no new engine operation), and
+was left out because it is a single-photo edit that duplicates stored bytes under the 10 GB budget rather than a
+missing capability. Background image processing needs an iOS background-scheduling/entitlement decision, and the
+on-device model cannot run while the app is not running; the existing queues already resume on foreground and
+reconnect. Reanalysis specifically means there is no stored feature-print index: prints are computed per scan and
+valid only within the pinned Vision revision, so making whole-wardrobe duplicate checks instant is a persistence
+question, not a model one. None of the three was faked with a local re-render. Photo replacement already creates new
+media and leaves historical derivatives referenced, which the existing MinIO lifecycle integration test asserts.
+
+`WardrobeBatchTests` is authored (plan skip reasons and capacity, frozen per-item intents, one request per item with
+no duplicates on a second run, partial acknowledged/refused/retrying outcomes, relaunch identity, and a signed-out
+client that can report nothing saved). No engine, contract, migration, gateway or chart change is needed; the
+registry stays at **46** and the generated contract is byte-identical. Xcode project generation and the simulator
+app/test compiles ran; Swift suite runs, device checks and live flows remain deferred.
+
+- [x] Add richer metadata, amount/currency/evidence semantics, full server filters/sort and real ranked usage lists.
+  **P4.1 supplies the metadata and money semantics, P4.2 the server filters/sort/coverage and P4.3 the ranked
+  usage, unworn, distribution, trend and feedback aggregates above.**
 - [ ] Prefer local OCR/cutouts/feature prints and guided extraction. Direct Apple image prompting needs compatible
   SDK/OS/model/device support; use available agent image tools only for tasks requiring that remote capability.
-- [ ] Add complete-inventory duplicate proposals, source-linked analytics and local explanations of engine aggregates.
+  **P4.4 keeps every comparison on-device with a pinned Vision revision and adds no model image path;** it does not
+  settle whether a future capture feature needs one.
+- [x] Add complete-inventory duplicate proposals, source-linked analytics and local explanations of engine aggregates.
+  **P4.3 supplies the source-linked analytics and the bounded local explanation, and P4.4 the complete-inventory
+  duplicate scan above with its disclosed coverage and source binding.**
 - [ ] Reconcile supporting purchase records through agent connections, with uncertain matches reviewed before saving.
-- [ ] Add bounded bulk maintenance with explicit selection, per-item progress, stable identities, retry/recovery and
+  **P4.5 delivers the local receipt/label reading, literal figure checks and reviewed application above.** The
+  connected half stays open: it needs a real connection that exposes purchase records before a typed adapter can be
+  written, and no such tool exists in the inspected gateway contract.
+- [x] Add bounded bulk maintenance with explicit selection, per-item progress, stable identities, retry/recovery and
   protection of historical photos. Keep suitable photo operations local and heavier jobs outside engine transactions.
+  **P4.6 delivers the explicit selection, frozen per-item requests, per-item outcomes and queue-reusing recovery
+  above.** Rotation, background image processing and reanalysis need capabilities that do not exist yet (immutable
+  derivatives, background scheduling, a feature-print index) and stay open.
+
+## N05 weather and temperature (2026-10-10)
+
+The temperature settings P1 stored (`temperature_unit`, `temperature_sensitivity`, `cold_threshold_c`,
+`hot_threshold_c`) were validated and never read by ranking. They now drive a real term: `wardrobe_suggest` takes
+an optional `temperature_c`, bands it against the owner's own cold/hot thresholds, and scores each garment's
+**recorded** warmth against that band by the saved sensitivity (low/normal/high → weight 2/4/7). A garment whose
+warmth tag is absent or `unknown` scores nothing and is never treated as the wrong layer; how many such garments
+exist is reported in the response warnings. The reason on a scored garment names the value and the band
+("its warm warmth suits a cold day. 4°C is a cold day for your thresholds."). No temperature means no temperature
+term and an explicit "no temperature was supplied" warning, so a reading is never implied.
+
+`precipitation` is accepted and **disclosed as unassessable**: no garment records water resistance, so nothing is
+filtered or scored for it, and inventing suitability from material would be exactly the inference the product
+forbids. Adding a water-resistance attribute is a product decision that has not been taken.
+
+iOS adds the manual override the checklist asks for: a °C field on Suggestions with a **Use the reviewed forecast**
+button that fills the midpoint (or the single end) of the forecast the owner already retrieved through P2.4, a
+rain-or-snow toggle, and a note saying what a temperature does and does not affect. Nothing is fetched or applied on
+its own: the value must be stated, and clearing the field removes it rather than sending a zero. Ranked reasons
+already surface in the UI, so the temperature reason appears with the others.
+
+Authored: `TestTemperatureUsesOwnerThresholdsAndRecordedWarmth` (banding at both thresholds, sensitivity scaling,
+per-warmth scores including unknown, the reason text, the beam preferring the light layer on a hot day and the warm
+layer on a cold day), an integration case for the warning lines and the `-60..60` bound, and the native
+`temperature_c`/`precipitation` encoding including omission. **Still open:** automatic forecast-driven ranking
+(nothing fetches a temperature; the owner supplies or accepts one), layering as a rule rather than the existing
+disclosure, and water-resistance suitability. Every check remains unrun.
+
+## Language tasks across executors (2026-10-10)
+
+A language task is now declared once and can run on either the on-device model or the connected agent:
+`WardrobeLanguageTasks` holds the instructions, the answer contract, the on-device reader, the connected parser
+and **one shared validator**; `WardrobeLanguageDispatcher` chooses between them. `rawCapture` tasks are refused on
+the agent by the dispatcher itself, so the local-only rule for raw camera, label and voice data is enforced in code
+rather than by convention, and each answer records which executor produced it. See
+[language tasks](retro-language-tasks.md).
+
+Wired: **request interpretation** (search and outfit). When the device cannot read the request, the screen offers an
+opt-in connected reading, sends only the owner's typed text plus the task's instructions and contract through the
+existing `ask_agent` delegation, and holds the reply to the same `WardrobeLanguageDraft` validator and the same
+90-second/two-delegation journal as the other connected features. **Garment extraction** runs through the same seam
+on device, with the connected parser and the literal-evidence gate already in place, but has no UI opt-in yet. The
+tool-using adapters (candidate help, laundry planning, outfit context) deliberately keep their own shapes.
+
+Authored: `WardrobeLanguageTaskTests` covers routing and provenance, the raw-capture refusal, fallback when a
+preferred executor fails or returns an invalid draft, the shared validator rejecting the same bad draft on either
+route, the literal gate dropping a brand the owner's text does not contain, and the delegation's query budget.
+Everything remains **unrun**. No engine, contract, gateway or storage change; the registry stays at **46**.
 
 ## P5 — Live try-on feasibility
 
 Outcome: measured evidence for a rendering approach that can meet the requested live-camera experience.
 Checklist coverage: N02 feasibility; can start alongside P2–P4 without blocking them.
 
-- [ ] Define the required camera setup, asset capture, garment categories and measurable fidelity/latency/battery targets.
+- [x] Define the required camera setup, asset capture, garment categories and measurable fidelity/latency/battery targets.
+  **P5.1 is authored in [the feasibility record](retro-try-on-feasibility.md):** camera, distance/positioning,
+  lighting, motion and category scope, the asset requirements (views, mask, scale, colour, format-undecided,
+  missing-asset behaviour, retention under 10 GB) and a proposed benchmark budget whose numbers are explicitly not
+  approved targets, with observed results kept separate.
 - [ ] Prototype native pose/person masks and a purpose-built local renderer/model on the owner's actual device.
   Foundation Models handles language commands, not per-frame clothing simulation.
 - [ ] Evaluate agent asset preparation or a specialist renderer only where needed; measure swap response and video
@@ -383,6 +654,11 @@ Checklist coverage: N02 feasibility; can start alongside P2–P4 without blockin
 - [ ] Record the supported approach, category limits, capture requirements and failures before planning delivery.
 
 A still image or static overlay can inform experiments but does not complete N02.
+No renderer, asset format or quantitative acceptance thresholds have been selected. Record measured evidence and
+the go/no-go decision in [the feasibility record](retro-try-on-feasibility.md) before P6 renderer delivery; see the
+[handoff's feasibility gate](retro-p4-p6-handoff.md#p5--feasibility-gate-before-delivery). **P5.1 (specification and
+proposed benchmark budget) is authored there; P5.2–P5.4 wait on the owner's device measurements**, which the
+current validation policy defers.
 
 ## P6 — Live try-on delivery and integrated client completion
 
@@ -391,11 +667,13 @@ Checklist coverage: N02 delivery and integration across all required N01–N12 f
 
 - [ ] Implement camera positioning guidance, moving-person preview, layering/occlusion and stable live swaps.
 - [ ] Add reachable/hands-free controls, tracking-loss/loading/recovery states and the ordinary reviewed save path.
-- [ ] Deliver supported platform behavior with explicit device/camera/category capability limits. Keep Android's
-  record/manual contract usable without Apple APIs and evaluate its own rendering capabilities.
+- [ ] Deliver supported iOS behavior with explicit device/camera/category capability limits. Preserve Android wire
+  compatibility; new Android implementation/rendering is outside the current scope.
 - [ ] Complete accessibility, account isolation, pending/offline recovery and bounded preview retention within 10 GB.
 
 Family sharing, browser UI, localization and configurable providers remain optional O01–O04 product choices.
+P6 integration must explicitly reconcile remaining N01–N12 gaps, including broader weather rules, delivery and
+connected pairings; completing the camera alone does not close them. See the [handoff](retro-p4-p6-handoff.md).
 
 ## Delivery and validation discipline
 
@@ -404,7 +682,7 @@ rules/contracts and dangerous retry/conflict paths; do not claim a feature compl
 At the owner's request, runtime/test-suite validation follows implementation/deployment. Deployment itself needs
 a separate request; these phases do not deploy infrastructure or install new phone builds automatically.
 
-P1 evidence: Go formatting, the OpenAPI generator and Xcode project generation completed; the generator compiled
+Historical P1 evidence: Go formatting, the OpenAPI generator and Xcode project generation completed; the generator compiled
 the engine and produced the 25-operation contract. Focused backend/native tests and shared fixtures are authored.
 Gateway MCP source, schemas and focused regressions are now authored and dependency metadata is resolved.
 Unit/integration suites, migration execution, native/gateway builds, agent flows and deployment remain unrun.
@@ -412,7 +690,14 @@ P1.4 now includes the iOS MCP bridge, native Apple tool loop, durable request/ow
 Today assistant sheet. Its focused transport, recovery and controller tests are authored, unrun. P2.1 ranking/Today
 and P2.2 daily selections/pairings, P2.3 local candidate help, P2.4 connected context and P2.5 daily automation are
 now implemented in source. P3.1 manual laundry, P3.2 local laundry/label assistance, P3.3 wear/check-in reminders
-and P3.4 reviewed local/connected timing/batches are also in source. P4–P6 remain pending, with laundry notification
-delivery, broader scheduling and N05 selection rules still open.
-No Helm changes or deployment were performed;
-MinIO remains budgeted at 10 GB.
+and P3.4 reviewed local/connected timing/batches are also in source. P4.1 richer garment records, P4.2 complete
+server search, P4.3 source-linked reviews/ranked usage, P4.4 complete-inventory duplicate scans, P4.5 local
+receipt/label purchase reading (its connected half stays open) and P4.6 bounded multi-item maintenance are in
+source, so **P4 is complete in source**. P5–P6 remain pending, with laundry notification delivery, broader
+scheduling and the remaining N05 rules (automatic forecast-driven ranking, water-resistance suitability) still open,
+plus the capabilities P4.6 could not use.
+Latest native evidence (2026-10-09): the signed Debug build through P3.4 passed, installed and launched on the
+iPhone 17 Pro, with its running process confirmed. Earlier phase notes about deferred native builds describe their
+original iteration status. Suites, migration execution, actual Apple/agent/provider flows and full device/accessibility
+checks remain unrun. No infrastructure deployment was performed in these iterations; current chart source supports
+Retro/MinIO/gateway wiring but running images and tenant overrides were not checked. MinIO remains budgeted at 10 GB.

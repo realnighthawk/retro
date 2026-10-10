@@ -182,7 +182,7 @@ func listPairings(ctx context.Context, u *unit, in PairingListInput) (Page[Pairi
 	result := Page[Pairing]{Items: []Pairing{}}
 	filters := in
 	filters.ListInput = ListInput{}
-	limit, after, e := page(in.ListInput, filters)
+	limit, after, _, e := page(in.ListInput, filters)
 	if e != nil {
 		return result, e
 	}
@@ -216,7 +216,7 @@ func listPairings(ctx context.Context, u *unit, in PairingListInput) (Page[Pairi
 	}
 	if len(ids) > limit {
 		ids = ids[:limit]
-		result.NextCursor = cursor(filters, ids[len(ids)-1])
+		result.NextCursor = cursor(filters, ids[len(ids)-1], "")
 	}
 	for _, key := range ids {
 		p, e := u.getPairing(ctx, key)

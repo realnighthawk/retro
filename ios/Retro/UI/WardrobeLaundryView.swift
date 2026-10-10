@@ -118,7 +118,7 @@ struct WardrobeLaundryDetail: View {
                 }
             }
     }
-    @ViewBuilder private func stamp(_ title: String, _ value: String?) {
+    @ViewBuilder private func stamp(_ title: String, _ value: String?) -> some View {
         if let date = value.flatMap(GatewayAgentResult.date) { LabeledContent(title, value: date.formatted(date: .abbreviated, time: .shortened)) }
     }
     private func load() async {

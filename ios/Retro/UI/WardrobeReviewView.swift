@@ -23,6 +23,8 @@ struct WardrobeSuggestionsView: View {
     @State private var comparison: WardrobeComparison?
     @State private var assistance: WardrobeCandidateContext?
     @State private var assistedSwap: WardrobeSuggestQuery?
+    @State private var temperature = ""
+    @State private var rain = false
     @State private var assistedPieces: [WardrobeSelection] = []
     @State private var reviewTask: Task<Void, Never>?
     init(store: WardrobeStore, day: String, initialQuery: WardrobeSuggestQuery? = nil, pieces: [WardrobeSelection] = []) {
@@ -36,8 +38,27 @@ struct WardrobeSuggestionsView: View {
             _excluded = State(initialValue: input.excludedIDs.map { id in pieces.first { $0.id == id } ?? WardrobeSelection(id: id, name: "Excluded piece", role: "other") })
         }
     }
+    private var temperatureC: Int? { Int(temperature.trimmingCharacters(in: .whitespaces)).flatMap { (-60...60).contains($0) ? $0 : nil } }
     private var query: WardrobeSuggestQuery {
-        WardrobeSuggestQuery(day: day, occasion: occasion, warmth: warmth, requiredIDs: required.map(\.id), excludedIDs: excluded.map(\.id), excludedCombinations: seen, variant: variant, expectedPreferencesVersion: expectedPreferencesVersion, swapRole: swapRole)
+        var value = WardrobeSuggestQuery(day: day, occasion: occasion, warmth: warmth, requiredIDs: required.map(\.id), excludedIDs: excluded.map(\.id), excludedCombinations: seen, variant: variant, expectedPreferencesVersion: expectedPreferencesVersion, swapRole: swapRole)
+        value.temperatureC = temperatureC
+        value.precipitation = rain ? true : nil
+        return value
+    }
+    // A reviewed forecast for this day, if the owner already retrieved one: the midpoint of the day's
+    // range, or whichever end the provider gave. It is offered, never applied on its own.
+    private var reviewedForecast: (low: Double?, high: Double?) {
+        guard let context = store.assistant.outfitContext, context.weather?.day == day else { return (nil, nil) }
+        return (context.weather?.lowC, context.weather?.highC)
+    }
+    private var reviewedTemperature: Int? {
+        let (low, high) = reviewedForecast
+        switch (low, high) {
+        case let (low?, high?): return Int(((low + high) / 2).rounded())
+        case let (low?, nil): return Int(low.rounded())
+        case let (nil, high?): return Int(high.rounded())
+        default: return nil
+        }
     }
     private var reviewQuery: WardrobeSuggestQuery { (try? read.value?.reviewQuery(query, cached: read.cached)) ?? query }
     var body: some View {
@@ -51,6 +72,15 @@ struct WardrobeSuggestionsView: View {
                     Text("Any warmth").tag("")
                     ForEach(["light", "mid", "warm"], id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) }
                 }
+                HStack {
+                    TextField("Weather in °C (optional)", text: $temperature).keyboardType(.numbersAndPunctuation)
+                    if let reviewed = reviewedTemperature {
+                        Button("Use \(reviewed)°C") { temperature = String(reviewed) }
+                    }
+                    if !temperature.isEmpty { Button("Clear") { temperature = "" } }
+                }
+                Toggle("Rain or snow expected", isOn: $rain)
+                Text("A temperature is used only against each garment's recorded warmth, with your own cold/hot thresholds and sensitivity. Garments with no warmth tag stay neutral and are reported, and rain is disclosed rather than filtered, because no garment records water resistance.").font(.footnote)
                 Button("Locked pieces · \(required.count)/10") { choosingRequired = true }.frame(minHeight: 44)
                 Text(required.map(\.name).joined(separator: ", ")).font(.footnote)
                 Button("Exclude pieces · \(excluded.count)") { choosingExcluded = true }.frame(minHeight: 44)

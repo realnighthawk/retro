@@ -138,4 +138,48 @@ private final class AssistanceProtocol: URLProtocol {
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data); client?.urlProtocolDidFinishLoading(self)
     }
+
+    func testExtractionProposesOnlyDetailsTheOwnersTextStates() {
+        let label = "ACME 100% WOOL  Regular fit  Made in Portugal"
+        let stated = WardrobeAssistedDraft(name: "Wool coat", category: "outerwear", subtype: "coat", colours: ["navy", "grey"], notes: nil,
+                                           brand: "ACME", material: "wool", pattern: "herringbone", style: "trench", fit: "regular", seasons: ["winter"])
+        let kept = stated.onlyStated(in: "Navy herringbone trench for winter. " + label)
+        XCTAssertEqual(kept.brand, "ACME", "A label brand is literal evidence")
+        XCTAssertEqual(kept.material, "wool", "Case differences are not a new value")
+        XCTAssertEqual(kept.pattern, "herringbone")
+        XCTAssertEqual(kept.style, "trench")
+        XCTAssertEqual(kept.fit, "regular")
+        XCTAssertEqual(kept.colours, ["navy"], "An unstated colour is not proposed")
+        XCTAssertEqual(kept.seasons, ["winter"])
+        XCTAssertEqual(kept.dropped.sorted(), ["Colour: grey"])
+
+        let invented = WardrobeAssistedDraft(name: "Coat", category: "outerwear", subtype: nil, colours: ["blue"], notes: nil,
+                                             brand: "Gucci", material: "silk", pattern: "striped", style: "trench", fit: "slim", seasons: ["summer"])
+        let checked = invented.onlyStated(in: "A long coat I wear on cold days")
+        XCTAssertNil(checked.brand); XCTAssertNil(checked.material); XCTAssertNil(checked.pattern)
+        XCTAssertNil(checked.fit); XCTAssertTrue(checked.colours.isEmpty); XCTAssertTrue(checked.seasons.isEmpty)
+        XCTAssertEqual(checked.style, "trench", "The one stated detail is still proposed")
+        XCTAssertEqual(Set(checked.dropped), Set(["Brand: Gucci", "Material: silk", "Pattern: striped", "Fit: slim", "Colour: blue", "Season: summer"]))
+        XCTAssertNoThrow(try checked.validate(), "Reporting a dropped value is not an invalid suggestion")
+
+        var phrase = WardrobeAssistedDraft(name: "Jacket", category: "outerwear", subtype: nil, colours: [], notes: nil, style: "field jacket")
+        XCTAssertEqual(phrase.onlyStated(in: "A jacket in the field style").style, nil, "Words in another order are not the stated phrase")
+        phrase = phrase.onlyStated(in: "My field jacket")
+        XCTAssertEqual(phrase.style, "field jacket")
+    }
+
+    func testSuggestionBoundsRejectOversizedOrInventedDetails() {
+        var draft = WardrobeAssistedDraft(name: "Coat", category: "outerwear", subtype: nil, colours: [], notes: nil)
+        draft.seasons = (1...11).map { "season\($0)" }
+        XCTAssertThrowsError(try draft.validate(), "Only a bounded number of seasons is accepted")
+        draft.seasons = []
+        draft.brand = String(repeating: "é", count: 51)
+        XCTAssertThrowsError(try draft.validate(), "A brand longer than the record allows is rejected")
+        draft.brand = nil
+        draft.dropped = (1...21).map { "Value \($0)" }
+        XCTAssertThrowsError(try draft.validate(), "The dropped list is bounded")
+        draft.dropped = []
+        XCTAssertThrowsError(try WardrobeAssistedDraft(name: "Coat", category: "jacket", subtype: nil, colours: [], notes: nil).validate(),
+                             "An unsupported category is rejected")
+    }
 }

@@ -46,8 +46,26 @@ choices and optional connected-service delivery with a single send reservation. 
 plans, confirmed wash/dry progress and retained history. P3.2 adds reviewed on-device laundry interpretation and
 care-label OCR/text drafts. P3.3 adds derived wears since confirmed cleaning and opt-in in-app care check-ins.
 P3.4 adds reviewed Apple/agent timing and compatible batch proposals around bounded upcoming outfit needs.
+P4.1 adds pattern/style/owner-supplied fit and one exact purchase record (date, source with evidence, ISO currency
+and integer minor units) to the ordinary garment record, with no conversion or inferred currency. P4.2 adds server
+filtering and sort orders for inventory with keyset cursors bound to the exact request, plus a match count so a page
+is never presented as complete inventory. P4.3 adds source-linked reviews: ranked most/least worn, unworn versus
+never-worn lists, colour distribution, weekly trends, explicit feedback and selection counts, and per-garment cost
+per wear that is never summed across currencies. P4.4 widens the local similar-item check to the complete active
+inventory with disclosed coverage, binding every hint to the compared photo bytes and the record version it saw, and
+P4.5 reads a receipt or price label on device into the open garment form, proposing a total, currency and date only
+when the recognized text actually states them. P4.6 adds bounded maintenance over explicitly selected garments,
+each queued as its own frozen request with its own reported outcome. N05 now bands a stated temperature against the
+owner's own thresholds and scores recorded warmth tags, with a manual override on Suggestions; water-resistance
+suitability stays open because no garment records it. Language tasks are now declared once and can run
+on either the on-device model or the connected agent, with one shared validator, enforced local-only raw captures and
+visible provenance; see [language tasks](docs/retro-language-tasks.md).
 Broader automatic weather ranking and laundry notification delivery remain open. New client work is iOS only.
 See the [agent contract](docs/retro-agent-contract.md).
+The [P4–P6 implementation handoff](docs/retro-p4-p6-handoff.md) gives the next agent the source map, constraints,
+recommended slices, acceptance criteria and live try-on feasibility gate. The
+[try-on feasibility record](docs/retro-try-on-feasibility.md) holds the P5 capture specification and the proposed
+benchmark budget; its measurements and decision sections stay empty until real device evidence exists.
 
 ## Design
 
@@ -79,7 +97,7 @@ The earlier productivity day arc is preserved with the demo source for Sensei; R
 | Screenshots | `.impeccable/review/` — light and dark, both clients |
 
 Captures come from the simulator and emulator; the iPhone run proves it installs and launches on hardware.
-The table describes the earlier native demo. On 2026-10-08, the current M6 signed iOS Debug build succeeded,
+The table describes the earlier native demo. On 2026-10-09, the signed iOS Debug build through P1–P3.4 succeeded,
 was installed and launched on the connected iPhone 17 Pro, and its running process was confirmed. New client
 tests/fixtures have not been run; full-flow, Android, backend/router/Helm and accessibility validation remain deferred.
 

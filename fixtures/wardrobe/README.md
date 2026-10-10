@@ -3,6 +3,8 @@
 Synthetic HTTP response shapes shared by iOS and Android tests. These are test resources, never production demo data.
 They cover omitted optional attributes, arbitrary garment colours, exact 64-bit versions, several outfits on one
 local date and historical names distinct from current inventory. Dates/timestamps stay in their original wire form.
+`inventory.json` also carries P4.2 `total_matches` above the single item it returns, so a decoded page is never
+mistaken for complete inventory; older responses without it still decode.
 Maintain these alongside the wardrobe engine contract when fields change. Tests are authored; execution is deferred.
 
 `media.json` exercises a ready photo's 64-bit version, immutable reservation fields and router-relative derivative
@@ -62,3 +64,41 @@ unresolved duration/capacity condition. Exact garment/outfit versions above Java
 integers. Native tests rebase date/timestamp fields and fill the deterministic source binding, then author mixed/
 blocked/reused/unknown/late scope rejection, DST/midnight, source change, cached data, typed connected task recovery,
 late-result fencing and frozen reviewed-load retry cases. No real account/garment/provider data is used; tests remain unrun.
+
+`garment-records.json` covers P4.1 pattern/style/fit and an exact purchase record: a receipt-sourced amount in
+integer minor units with its ISO 4217 currency and derived exponent. Native tests author money formatting without
+conversion, partial/zero/unknown amounts, client-side field validation, selective purchase patches and explicit
+clearing, and confirm the legacy `inventory.json` record still decodes with every new field absent. Tests remain unrun.
+
+P4.2 search fixtures reuse `inventory.json`: the page reports one item, a cursor and a larger `total_matches`.
+Native tests author exact wire names for every filter (`wash_method`, `care_confirmed`, `include_archived`),
+omitted nils, sort titles, active-filter descriptions and language-draft filters, including rejection of
+unsupported or oversized conditions. Engine tests walk pages over tied names, compare every sort order, and
+confirm changed filters or sorts invalidate a cursor. All remain unrun.
+
+`usage-review.json` covers P4.3 analytics: ranked most/least worn with per-garment cost per wear in its own
+currency, not-worn-in-range versus never-worn lists with their full totals, a colour distribution over the
+inventory, one weekly bucket, explicit feedback buckets and separate selection/plan counts. The legacy
+`analysis.json` keeps the older shape on purpose: native tests confirm it still decodes and produces the
+same unchanged summary. Tests author decoding, money formatting, coverage and subset/sum rules, plus forged
+or stale responses (a never-worn entry outside the unworn list, rating buckets that do not add up, a cost per
+wear with a smaller denominator, a review for another period). Tests remain unrun.
+
+P4.4 duplicate-scan tests build their candidates and cached thumbnails in code (no photo bytes are stored in the
+fixtures): the comparison plan, its fetch budget, over-budget accounting, oversized cached thumbnails, source-photo
+and revision binding, and the coverage sentence including an unreadable inventory. Vision feature prints themselves
+are not exercised here; they need the deferred device checks.
+
+P4.4 is otherwise tested without fixtures: the comparison plan and its coverage accounting are built in code, and
+the broadened capture extraction is checked by asserting that only values present in the supplied text survive,
+that unstated values are dropped and reported, and that bounds match the garment record. Vision feature prints and
+the on-device language model are not executed here.
+
+P4.5 receipt reading is tested in code against sample receipt text (no image fixture): amount normalization and its
+refusals, literal currency and date rules, dropped-value reporting, selective application into `garment-records.json`
+and stability when the same receipt is applied twice. Vision text recognition and the on-device model are not run.
+
+P4.6 batch tests build their garments in code and use a file-backed write queue with a stub sender: plan skip
+reasons and the queue's item budget, frozen per-item intents, one request per garment, a second run refused per
+item, partial acknowledged/refused/retrying outcomes, identity kept across a relaunch, and a signed-out client that
+can claim nothing saved. No engine or network behaviour is exercised.

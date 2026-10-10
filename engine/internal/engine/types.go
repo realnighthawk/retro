@@ -28,11 +28,28 @@ type GarmentAttributes struct {
 	Formality       string           `json:"formality,omitempty"`
 	Material        string           `json:"material,omitempty"`
 	Brand           string           `json:"brand,omitempty"`
+	Pattern         string           `json:"pattern,omitempty"`
+	Style           string           `json:"style,omitempty"`
+	Fit             string           `json:"fit,omitempty"`
 	Notes           string           `json:"notes,omitempty"`
 	Favourite       bool             `json:"favourite,omitempty"`
 	MediaIDs        []string         `json:"media_ids,omitempty"`
+	Purchase        *PurchaseRecord  `json:"purchase,omitempty"`
 	Care            *CareSettings    `json:"care,omitempty"`
 	LaundryReminder *LaundryReminder `json:"laundry_reminder,omitempty"`
+}
+
+// PurchaseRecord keeps money as integer minor units of an explicit ISO 4217 currency. Nothing here is
+// inferred, converted or totalled: an absent field is unknown, and a recorded zero is a real value.
+type PurchaseRecord struct {
+	Date             string `json:"date,omitempty"`
+	Currency         string `json:"currency,omitempty"`
+	AmountMinor      *int64 `json:"amount_minor,omitempty"`
+	CurrencyExponent *int   `json:"currency_exponent,omitempty"` // derived from Currency on every write
+	Evidence         string `json:"evidence,omitempty"`
+	Source           string `json:"source,omitempty"`
+	// Amount is an input-only decimal in major units ("42.50"); it is parsed into AmountMinor and never stored.
+	Amount string `json:"amount,omitempty"`
 }
 type GarmentData struct {
 	Name         string `json:"name"`
@@ -72,6 +89,22 @@ type GarmentListInput struct {
 	Category        string `json:"category,omitempty"`
 	Availability    string `json:"availability,omitempty"`
 	IncludeArchived bool   `json:"include_archived,omitempty"`
+	Brand           string `json:"brand,omitempty"`
+	Notes           string `json:"notes,omitempty"`
+	Colour          string `json:"colour,omitempty"`
+	Season          string `json:"season,omitempty"`
+	Favourite       *bool  `json:"favourite,omitempty"`
+	WashMethod      string `json:"wash_method,omitempty"`
+	CareConfirmed   *bool  `json:"care_confirmed,omitempty"`
+	Sort            string `json:"sort,omitempty"`
+}
+
+// GarmentPage reports the matches for one request. TotalMatches is counted in the same read
+// transaction as the page, but it is not an immutable snapshot: later reads may differ.
+type GarmentPage struct {
+	Items        []Garment `json:"items"`
+	NextCursor   *string   `json:"next_cursor"`
+	TotalMatches int64     `json:"total_matches"`
 }
 type Page[T any] struct {
 	Items      []T     `json:"items"`

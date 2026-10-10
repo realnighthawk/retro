@@ -2,6 +2,8 @@ package engine
 
 import (
 	"encoding/json"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,57 @@ func TestPatchClearsAndRejectsRequiredNull(t *testing.T) {
 	}
 	if e := patchFields(&g, map[string]json.RawMessage{"owner_id": json.RawMessage(`"other"`)}, "notes"); e == nil {
 		t.Fatal("owner patch accepted")
+	}
+}
+func TestPurchaseMoneyIsExactAndExplicit(t *testing.T) {
+	for _, tc := range []struct {
+		amount   string
+		exponent int
+		want     int64
+		valid    bool
+	}{{"12", 2, 1200, true}, {"12.5", 2, 1250, true}, {"12.50", 2, 1250, true}, {"0.00", 2, 0, true},
+		{"12.", 2, 1200, true}, {"12", 0, 12, true}, {"12.5", 0, 0, false}, {"1.234", 2, 0, false},
+		{"1.234", 3, 1234, true}, {"-1", 2, 0, false}, {"+1", 2, 0, false}, {"1e3", 2, 0, false},
+		{"", 2, 0, false}, {".50", 2, 0, false}, {"1,000", 2, 0, false}, {"9999999999999999", 2, 0, false}} {
+		t.Run(tc.amount+strconv.Itoa(tc.exponent), func(t *testing.T) {
+			value, e := parseAmount(tc.amount, tc.exponent)
+			if (e == nil) != tc.valid || value != tc.want {
+				t.Fatalf("amount %q exponent %d: %d %v", tc.amount, tc.exponent, value, e)
+			}
+		})
+	}
+	g := GarmentData{Name: "Jacket", Category: "outerwear", GarmentAttributes: GarmentAttributes{
+		Pattern: "herringbone", Style: "field jacket", Fit: "relaxed",
+		Purchase: &PurchaseRecord{Date: " 2026-03-02 ", Currency: "eur", Amount: " 199.9 ", Source: "receipt", Evidence: "Receipt 2026-03-02, total 199,90 EUR"},
+	}}
+	if e := validateGarment(&g); e != nil {
+		t.Fatal(e)
+	}
+	p := g.Purchase
+	if p.Date != "2026-03-02" || p.Currency != "EUR" || p.Amount != "" || p.AmountMinor == nil || *p.AmountMinor != 19990 || p.CurrencyExponent == nil || *p.CurrencyExponent != 2 {
+		t.Fatalf("purchase not normalized: %+v", p)
+	}
+	minor := int64(0)
+	for _, tc := range []struct {
+		record PurchaseRecord
+		valid  bool
+	}{{PurchaseRecord{}, true}, {PurchaseRecord{Date: "2026-13-01"}, false}, {PurchaseRecord{Currency: "US"}, false},
+		{PurchaseRecord{Currency: "USD", Amount: "10"}, true}, {PurchaseRecord{Amount: "10"}, false},
+		{PurchaseRecord{AmountMinor: &minor, Currency: "JPY"}, true}, {PurchaseRecord{Currency: "US1"}, false},
+		{PurchaseRecord{Source: "receipt"}, false}, {PurchaseRecord{Source: "receipt", Evidence: "Receipt text"}, true},
+		{PurchaseRecord{Source: "guessed"}, false}, {PurchaseRecord{Evidence: strings.Repeat("x", 2001)}, false},
+		{PurchaseRecord{Currency: "USD", AmountMinor: &minor}, true}, {PurchaseRecord{Evidence: "Receipt photo on file"}, true}} {
+		t.Run(tc.record.Source+tc.record.Currency, func(t *testing.T) {
+			record := tc.record
+			pointer := &record
+			if (normalizePurchase(&pointer) == nil) != tc.valid || (tc.valid && tc.record.Currency == "USD" && record.CurrencyExponent == nil) {
+				t.Fatalf("unexpected validity: %+v", tc.record)
+			}
+		})
+	}
+	empty := GarmentData{Name: "Tee", Category: "top", GarmentAttributes: GarmentAttributes{Purchase: &PurchaseRecord{Source: "manual"}}}
+	if e := validateGarment(&empty); e != nil || empty.Purchase != nil {
+		t.Fatalf("empty purchase was kept: %+v %v", empty.Purchase, e)
 	}
 }
 func TestOutfitDatesAndSelections(t *testing.T) {
@@ -60,13 +113,18 @@ func TestOperationBoundary(t *testing.T) {
 	}
 }
 func TestCursorBindsFilters(t *testing.T) {
-	filters := GarmentListInput{Category: "top"}
-	value := cursor(filters, uuid.NewString())
-	if _, _, e := page(ListInput{Cursor: *value}, filters); e != nil {
-		t.Fatal(e)
+	filters := GarmentListInput{Category: "top", Sort: "name"}
+	value := cursor(filters, uuid.NewString(), "Dress")
+	if _, _, key, e := page(ListInput{Cursor: *value}, filters); e != nil || key != "Dress" {
+		t.Fatalf("cursor key lost: %s %v", key, e)
 	}
-	if _, _, e := page(ListInput{Cursor: *value}, GarmentListInput{Category: "bottom"}); e == nil {
-		t.Fatal("changed filters accepted")
+	for _, changed := range []GarmentListInput{{Category: "bottom", Sort: "name"}, {Category: "top", Sort: "recent"}, {Category: "top", Sort: "name", Colour: "blue"}} {
+		if _, _, _, e := page(ListInput{Cursor: *value}, changed); e == nil {
+			t.Fatalf("changed filters accepted: %+v", changed)
+		}
+	}
+	if _, _, _, e := page(ListInput{Cursor: *value, Limit: 10}, GarmentListInput{Category: "top", Sort: "name"}); e != nil {
+		t.Fatalf("the same query with a different page size was rejected: %v", e)
 	}
 }
 func TestCanonicalInput(t *testing.T) {

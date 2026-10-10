@@ -163,8 +163,133 @@ rejected-load recovery handle the subsequent save. Other batches are not saved a
 edits cancel local work and retain remote stop intent. The existing bounded loop and owner-question UI are reused.
 
 `WardrobeLaundryPlanningTests` and `laundry-planning.json` are authored, unrun. Xcode project generation includes the
-new files. Native builds, suites, actual model/agent/device checks and deployment remain deferred. No new engine
+new files. On 2026-10-09, the owner's device deployment request built the signed Debug app with P1–P3.4, installed
+it on the connected iPhone 17 Pro and launched `org.nighthawklabs.retro`; the running Retro process was confirmed.
+Build fixes renamed the settings assistance view file to avoid a duplicate filename, renamed the empty-state view
+to distinguish it from the API input, split an outfit row expression and added the laundry timestamp view return type.
+Suites, backend integration, actual model/agent flows and full device/accessibility checks remain unrun. No new engine
 operation, migration, gateway/router/chart value or storage allocation is needed; the registry remains 46.
+
+P4.1 is implemented in engine/iOS source on 2026-10-09. Garment records carry optional pattern, style, owner-supplied
+fit and one purchase record: an ISO-date, a source (`manual`, `receipt` or `connected`) with required bounded evidence
+for the latter two, an optional ISO 4217 currency and an exact integer amount in that currency's minor units. The
+engine derives the currency exponent from a small table (default two decimals), parses the typed major-unit amount
+without floating point and rejects precision the currency does not have; it never converts, totals or infers a
+currency. A missing amount stays unknown and a recorded zero stays zero. `Edit garment` adds the three description
+fields and a purchase section; leaving every purchase field empty records no purchase. Amounts are typed with the
+currency the record already has, so Android and agent callers keep their existing wire compatibility.
+
+Money appears only where a record states it. `WardrobeGarment.purchase` decodes as nil for every older response, and
+pattern/style/fit/purchase are optional in saved drafts so drafts written before P4.1 still open. Patches omit
+unchanged values and `null` clears the whole purchase record; selected-field recovery can reapply or clear it
+individually. Historical outfit snapshots keep the metadata and purchase facts confirmed at the time. `garments_create`
+and `garments_update` remain the only operations; the registry stays 46 with no migration (attributes are JSONB),
+gateway/router change or storage allocation. `WardrobeGarmentRecordTests` and `garment-records.json` are authored.
+Go formatting and the focused engine unit tests ran; OpenAPI and Xcode project generation completed and the simulator
+app and test targets compiled. Swift suite runs, integration/migration execution, device builds and live flows remain
+deferred, so these checks are authored rather than verified.
+
+P4.2 is implemented in engine/iOS source on 2026-10-09. `Wardrobe` filters inventory by name, brand and notes
+substrings, colour and season (whole recorded values), category, availability, favourite, confirmed wash method,
+care reviewed/unreviewed and archive state, and sorts by default order, name, recently updated or newest first. The
+list is paged by a keyset cursor carrying the last record's sort key and ID, so equal sort values neither repeat nor
+skip, and the cursor is bound to the exact filter and sort request: changing either is rejected instead of returning
+a mixed page. The response adds `total_matches`, counted in the same read as the page, and the screen shows how many
+of how many are displayed — never "all garments" for a cached page.
+
+`Describe a search` interprets the same filters on device and shows them as editable controls; anything the engine
+cannot search stays listed as not applied. Colours and seasons are matched only as complete recorded values, and the
+model is told to copy them verbatim instead of translating them. Manual search, filters and sorting work without the
+model, and no connected search adapter was added. `WardrobeSearchTests` and the engine search/paging integration test
+are authored; focused engine unit tests ran and both simulator targets compiled, with suite runs, integration
+execution and device flows still deferred.
+
+P4.3 is implemented in engine/iOS source on 2026-10-09. **History → Wardrobe review** now shows the most and least
+worn garments for the period, the garments with no confirmed wear in it, the ones that have never been worn at all,
+the recorded colour distribution, recent weekly buckets and the explicit feedback and saved-selection counts, each
+linked to the ordinary garment record it came from. Only a confirmed wear counts as a wear; plans, saved choices,
+opened records and ratings are counted separately and never as wears. Cost per wear is shown per garment from its
+own recorded amount and confirmed-wear count, with no cross-currency total and no figure at all when the price or
+the wears are unknown.
+
+The summary states the figures and discloses every cap ("only the 50 longest-owned of 71 are listed"), and refuses
+a response whose totals disagree — category, unworn, ranked, rating-bucket and cost-per-wear denominators are all
+cross-checked before anything is explained. **Explain this review on device** sends only that validated sentence to
+the on-device model, which is told to add no causes, garments or coverage; it is labelled as commentary and the
+figures remain readable without it. `WardrobeUsageReviewTests`, the engine analytics integration test and
+`usage-review.json` are authored; focused engine unit tests ran and both simulator targets compiled, while suite
+runs, integration execution, device builds and live model/agent flows remain deferred.
+
+P4.4 is implemented in iOS source on 2026-10-09. **Add from photos → Review photo → Check the whole wardrobe for
+similar items** now indexes the complete active inventory (paged through `garments_list` up to 2000 garments, using
+the engine's match count to know whether the walk was complete) instead of checking one cached page. It compares
+cached thumbnails first and then up to 120 fetched ones, and it says exactly what it covered: how many photos were
+compared, how many garments have no photo, how many were not checked, and when the index itself was cut short.
+
+Each hint is bound to the selected photo's exact bytes by checksum and to the pinned Vision revision; applying one
+re-reads the garment and requires the same version and primary photo before offering the ordinary "use this
+existing garment" confirmation, which only replaces unsaved new-garment details. A cancelled scan, an account
+switch, a finished draft or changed photo bytes cannot apply a stale hint. Nothing is merged or deleted, and no
+direct model image path is added.
+
+**Capture assistance** now extracts brand, material, pattern, style, fit and seasons as well as name, category,
+subtype, colours and notes, but only from the owner's own description or a scanned label. Each value the text does
+not actually contain is dropped and listed as "not proposed", so an invented brand or material cannot reach the
+form; multi-word values must appear in the supplied words. Warmth, price, care, authenticity and laundry state are
+still never proposed. Applying a suggestion replaces only the fields the owner selects. `WardrobeDuplicateTests`
+and the extended assistance tests are authored; Xcode project generation and the simulator app/test compiles ran,
+while Swift suite runs, device checks and live flows remain deferred.
+
+P4.5 (local half) is implemented in iOS source on 2026-10-09. The garment form's purchase section adds **Read a
+receipt or price label**: a scanned receipt (local Vision text recognition, nothing uploaded) or typed text is read
+on device for the date, final total, currency and merchant only. Every figure is then checked against that text —
+`1,234.56` normalizes to `1234.56` while `1,50` and a bare `12,345` are refused, a currency must be stated as a code
+or an unambiguous name (`$` alone is reported as "choose it yourself"), and an all-numeric `03/02/2026` is never
+converted. Dropped values are listed. Applying fills only the purchase record — with `receipt` as the source and the
+reviewed text as its evidence — and never saves; the ordinary garment save still owns persistence, and re-applying
+the same receipt changes nothing. Manual purchase entry is unchanged.
+
+The connected half (reading real purchase records through an agent connection) is **not** built: the harness was
+inspected for a purchase/order/receipt tool and none exists, so an adapter would have to invent its result schema.
+That stays open until a real connection exposes purchase records. `WardrobeReceiptTests` is authored; Xcode project
+generation and the simulator app/test compiles ran, while Swift suite runs, device/model checks and live flows
+remain deferred.
+
+P4.6 is implemented in iOS source on 2026-10-09. Wardrobe → **Maintain several garments** selects garments
+explicitly (paged, filterable, each row showing either its state or why the chosen action cannot apply) and offers
+mark available, mark needs wash, add/remove favourite, archive and restore. Review shows every garment with its
+exact version before anything is queued, archiving is confirmed, and items that are already in that state, archived,
+or already pending are excluded with a reason instead of written as no-ops. The batch writes nothing itself: it
+hands one frozen request per garment to the existing durable queue, so one-pending-write-per-entity, its 100-item
+budget, retry/rejection rules and account fence all still apply. Outcomes are per garment — waiting, sending,
+retrying, refused with the engine's message, saved, or no longer pending — and a queued item is never shown as
+saved. Re-running the same selection is refused per item rather than duplicating intents, and relaunching keeps
+refused items with their original identities. Rotation, background image processing and reanalysis are not included
+because the capabilities do not exist yet (immutable derivatives, background scheduling, no feature-print index).
+`WardrobeBatchTests` is authored; Xcode project generation and the simulator app/test compiles ran, while Swift
+suite runs, device checks and live flows remain deferred.
+
+Language tasks are declared once and can run on either reader (2026-10-10). `WardrobeLanguageTasks` holds each
+task's instructions, answer contract, on-device reader, connected parser and a single shared validator;
+`WardrobeLanguageDispatcher` picks between them. Raw captures can never be delegated — the dispatcher refuses that
+by data class, so the local-only rule is enforced in code. **Describe a search / outfit** now offers an opt-in
+connected reading whenever the device itself cannot read the request: only the owner's typed text is sent, the
+reply is held to the same validator, the existing journal/90-second/two-delegation bounds apply, and the screen says
+which reader answered. Garment extraction runs through the same seam on device; its connected opt-in is not wired
+yet. See [language tasks](../docs/retro-language-tasks.md). `WardrobeLanguageTaskTests` is authored and unrun.
+
+N05 temperature is implemented in engine/iOS source on 2026-10-10. Suggestions accept an optional temperature in
+Celsius: it is banded against your saved cold/hot thresholds, and each garment's **recorded** warmth is scored
+against that band at the sensitivity you saved (low/normal/high). A garment with no warmth tag stays neutral and is
+never treated as the wrong layer — the response says how many such garments there are — and the reason on a scored
+garment names both the value and the band. No temperature means no temperature term and an explicit warning, so a
+reading is never implied. Rain or snow can be reported: it is disclosed as unassessable rather than filtered,
+because no garment records water resistance.
+
+On screen: a °C field beside the warmth picker with a **Use the reviewed forecast** button that fills the midpoint
+of the forecast you already retrieved, a rain toggle, and a note explaining what a temperature does and does not
+affect. Nothing is fetched or applied on its own. `WardrobeRankingTests` and the engine tests are authored; every
+check remains unrun and the temperature integration test is unrun without a disposable database.
 
 Retro now opens a wardrobe-only shell: **Today / Wardrobe / History**, account-bound to the existing login.
 The combined demo is preserved in `ProductivityDemoShell` for **Sensei**. The signed M6 app build/install/launch succeeded on the connected iPhone 17 Pro on 2026-10-08 and its running process was confirmed; new tests remain unrun.
@@ -256,7 +381,8 @@ account-switch/cancellation, acknowledgement persistence failure and snapshot-pr
 ## Not built yet
 
 Direct model image prompting, later optional features and Sensei extraction remain. M1–M6 source is implemented;
-The signed M6 iPhone build/install/launch passed; suites/full runtime and device/accessibility checks remain pending.
+P1–P3.4 is also in source, and its signed iPhone build/install/launch passed on 2026-10-09. Suites/full runtime and
+device/accessibility checks remain pending. P4–P6 starts from the [implementation handoff](../docs/retro-p4-p6-handoff.md).
 
 ## Suggestions, insights and recovery (M4 source)
 

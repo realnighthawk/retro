@@ -21,6 +21,12 @@ type SuggestInput struct {
 	Variant                    int      `json:"variant,omitempty"`
 	ExpectedPreferencesVersion *int64   `json:"expected_preferences_version,omitempty"`
 	SwapRole                   string   `json:"swap_role,omitempty"`
+	// TemperatureC is the value ranking should use, in Celsius: the owner's own reading or a forecast
+	// the client already reviewed. Ranking is never given a temperature nobody stated.
+	TemperatureC *int `json:"temperature_c,omitempty"`
+	// Precipitation records that rain or snow was reported. No garment records water resistance, so it
+	// can only be disclosed as unassessed, never filtered on.
+	Precipitation *bool `json:"precipitation,omitempty"`
 }
 type SuggestedItem struct {
 	Selection
@@ -100,11 +106,64 @@ func matches(values, wanted []string) bool {
 	}
 	return false
 }
+
+// temperatureBand places a stated temperature against the owner's own thresholds.
+func temperatureBand(temperature, cold, hot int) string {
+	switch {
+	case temperature <= cold:
+		return "cold"
+	case temperature >= hot:
+		return "hot"
+	}
+	return "mild"
+}
+func temperatureWeight(sensitivity string) int {
+	switch sensitivity {
+	case "low":
+		return 2
+	case "high":
+		return 7
+	}
+	return 4
+}
+
+// warmthFit scores a garment's recorded warmth against the band. An unknown warmth is never treated as
+// wrong: it scores nothing and says so, because a missing tag is not evidence of the wrong layer.
+func warmthFit(band, warmth string, weight int) (int, string) {
+	if warmth == "" || warmth == "unknown" {
+		return 0, ""
+	}
+	wanted, unwanted := "mid", ""
+	switch band {
+	case "cold":
+		wanted, unwanted = "warm", "light"
+	case "hot":
+		wanted, unwanted = "light", "warm"
+	case "mild":
+		unwanted = ""
+	}
+	switch warmth {
+	case wanted:
+		return weight, "its " + warmth + " warmth suits a " + band + " day."
+	case unwanted:
+		return -weight, "its " + warmth + " warmth is the wrong side of a " + band + " day."
+	}
+	return 0, ""
+}
+
 func garmentRank(g Garment, in SuggestInput, p PreferencesData, feedback ratingTotal) (int, []string) {
 	score, reasons := 0, []string{}
 	add := func(points int, reason string) { score += points; reasons = append(reasons, g.Name+": "+reason) }
 	if in.Warmth != "" && g.Warmth == in.Warmth {
 		add(8, "matches the requested warmth tag.")
+	}
+	if in.TemperatureC != nil {
+		band := temperatureBand(*in.TemperatureC, p.ColdThresholdC, p.HotThresholdC)
+		// A missing warmth tag stays neutral and is reported in the response warning instead, so it
+		// cannot crowd out the real reasons on a garment.
+		if points, reason := warmthFit(band, g.Warmth, temperatureWeight(p.TemperatureSensitivity)); reason != "" {
+			add(points, fmt.Sprintf("%s %d°C is a %s day for your thresholds.", reason, *in.TemperatureC, band))
+		}
 	}
 	if in.Occasion != "" && strings.EqualFold(g.Formality, in.Occasion) {
 		add(6, "matches the occasion/formality tag.")
@@ -393,7 +452,15 @@ func buildSuggestions(garments []Garment, in SuggestInput, p PreferencesData, we
 func suggest(ctx context.Context, u *unit, in SuggestInput) (Suggestions, error) {
 	result := Suggestions{Day: in.Day, Algorithm: "rules-v2", GeneratedAt: time.Now().UTC(), Items: []Suggestion{},
 		FeedbackCoverage: "latest_2000_version_matched_rated_wears_through_requested_day",
-		Warnings:         []string{"Styles match saved formality tags only; unknown style is not inferred.", "Weather, temperature sensitivity, care compatibility and scheduled delivery are not assessed."}}
+		Warnings:         []string{"Styles match saved formality tags only; unknown style is not inferred.", "Temperature is used only when it is supplied and only against recorded warmth tags; weather beyond that, care compatibility and scheduled delivery are not assessed."}}
+	if in.TemperatureC == nil {
+		result.Warnings = append(result.Warnings, "No temperature was supplied, so warmth was not matched to the weather.")
+	} else if *in.TemperatureC < -60 || *in.TemperatureC > 60 {
+		return result, invalid("temperature_c must be between -60 and 60")
+	}
+	if in.Precipitation != nil && *in.Precipitation {
+		result.Warnings = append(result.Warnings, "Rain or snow was reported, but no garment records water resistance, so nothing was filtered or scored for it.")
+	}
 	if e := date(in.Day); e != nil {
 		return result, e
 	}
@@ -442,6 +509,17 @@ func suggest(ctx context.Context, u *unit, in SuggestInput) (Suggestions, error)
 	}
 	if len(garments) > 2000 {
 		return result, invalid("automatic suggestions support up to 2000 garments; compose manually")
+	}
+	if in.TemperatureC != nil {
+		unknown := 0
+		for _, g := range garments {
+			if g.Warmth == "" || g.Warmth == "unknown" {
+				unknown++
+			}
+		}
+		if unknown > 0 {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("%d of %d active garments have no warmth tag, so the temperature could not be matched to them.", unknown, len(garments)))
+		}
 	}
 	feedbackRows, e := u.tx.Query(ctx, `SELECT array_agg(i.garment_id::text ORDER BY i.garment_id),f.attributes
 		FROM retro.outfit_feedback f JOIN retro.outfits o ON o.id=f.outfit_id

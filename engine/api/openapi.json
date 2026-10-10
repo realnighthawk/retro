@@ -124,6 +124,9 @@
               "favourite": {
                 "type": "boolean"
               },
+              "fit": {
+                "type": "string"
+              },
               "formality": {
                 "type": "string"
               },
@@ -175,6 +178,45 @@
               "notes": {
                 "type": "string"
               },
+              "pattern": {
+                "type": "string"
+              },
+              "purchase": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "currency_exponent": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
               "seasons": {
                 "items": {
                   "type": "string"
@@ -183,6 +225,9 @@
                   "null",
                   "array"
                 ]
+              },
+              "style": {
+                "type": "string"
               },
               "subtype": {
                 "type": "string"
@@ -291,6 +336,9 @@
           "favourite": {
             "type": "boolean"
           },
+          "fit": {
+            "type": "string"
+          },
           "formality": {
             "type": "string"
           },
@@ -339,6 +387,45 @@
           "notes": {
             "type": "string"
           },
+          "pattern": {
+            "type": "string"
+          },
+          "purchase": {
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": [
+                  "null",
+                  "integer"
+                ]
+              },
+              "currency": {
+                "type": "string"
+              },
+              "currency_exponent": {
+                "type": [
+                  "null",
+                  "integer"
+                ]
+              },
+              "date": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            },
+            "type": [
+              "null",
+              "object"
+            ]
+          },
           "seasons": {
             "items": {
               "type": "string"
@@ -347,6 +434,9 @@
               "null",
               "array"
             ]
+          },
+          "style": {
+            "type": "string"
           },
           "subtype": {
             "type": "string"
@@ -442,6 +532,9 @@
               "favourite": {
                 "type": "boolean"
               },
+              "fit": {
+                "type": "string"
+              },
               "formality": {
                 "type": "string"
               },
@@ -493,6 +586,45 @@
               "notes": {
                 "type": "string"
               },
+              "pattern": {
+                "type": "string"
+              },
+              "purchase": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "currency_exponent": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
               "seasons": {
                 "items": {
                   "type": "string"
@@ -501,6 +633,9 @@
                   "null",
                   "array"
                 ]
+              },
+              "style": {
+                "type": "string"
               },
               "subtype": {
                 "type": "string"
@@ -633,6 +768,9 @@
               "favourite": {
                 "type": "boolean"
               },
+              "fit": {
+                "type": "string"
+              },
               "formality": {
                 "type": "string"
               },
@@ -684,6 +822,45 @@
               "notes": {
                 "type": "string"
               },
+              "pattern": {
+                "type": "string"
+              },
+              "purchase": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "currency_exponent": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
               "seasons": {
                 "items": {
                   "type": "string"
@@ -692,6 +869,9 @@
                   "null",
                   "array"
                 ]
+              },
+              "style": {
+                "type": "string"
               },
               "subtype": {
                 "type": "string"
@@ -738,11 +918,29 @@
           "availability": {
             "type": "string"
           },
+          "brand": {
+            "type": "string"
+          },
+          "care_confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
           "category": {
+            "type": "string"
+          },
+          "colour": {
             "type": "string"
           },
           "cursor": {
             "type": "string"
+          },
+          "favourite": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           },
           "include_archived": {
             "type": "boolean"
@@ -750,7 +948,19 @@
           "limit": {
             "type": "integer"
           },
+          "notes": {
+            "type": "string"
+          },
           "search": {
+            "type": "string"
+          },
+          "season": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "wash_method": {
             "type": "string"
           }
         },
@@ -837,6 +1047,9 @@
                 "favourite": {
                   "type": "boolean"
                 },
+                "fit": {
+                  "type": "string"
+                },
                 "formality": {
                   "type": "string"
                 },
@@ -888,6 +1101,45 @@
                 "notes": {
                   "type": "string"
                 },
+                "pattern": {
+                  "type": "string"
+                },
+                "purchase": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount": {
+                      "type": "string"
+                    },
+                    "amount_minor": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "currency_exponent": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
                 "seasons": {
                   "items": {
                     "type": "string"
@@ -896,6 +1148,9 @@
                     "null",
                     "array"
                   ]
+                },
+                "style": {
+                  "type": "string"
                 },
                 "subtype": {
                   "type": "string"
@@ -940,11 +1195,15 @@
               "null",
               "string"
             ]
+          },
+          "total_matches": {
+            "type": "integer"
           }
         },
         "required": [
           "items",
-          "next_cursor"
+          "next_cursor",
+          "total_matches"
         ],
         "type": "object"
       },
@@ -1048,6 +1307,9 @@
               "favourite": {
                 "type": "boolean"
               },
+              "fit": {
+                "type": "string"
+              },
               "formality": {
                 "type": "string"
               },
@@ -1099,6 +1361,45 @@
               "notes": {
                 "type": "string"
               },
+              "pattern": {
+                "type": "string"
+              },
+              "purchase": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "currency_exponent": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
               "seasons": {
                 "items": {
                   "type": "string"
@@ -1107,6 +1408,9 @@
                   "null",
                   "array"
                 ]
+              },
+              "style": {
+                "type": "string"
               },
               "subtype": {
                 "type": "string"
@@ -1252,6 +1556,9 @@
               "favourite": {
                 "type": "boolean"
               },
+              "fit": {
+                "type": "string"
+              },
               "formality": {
                 "type": "string"
               },
@@ -1303,6 +1610,45 @@
               "notes": {
                 "type": "string"
               },
+              "pattern": {
+                "type": "string"
+              },
+              "purchase": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "currency_exponent": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "type": [
+                  "null",
+                  "object"
+                ]
+              },
               "seasons": {
                 "items": {
                   "type": "string"
@@ -1311,6 +1657,9 @@
                   "null",
                   "array"
                 ]
+              },
+              "style": {
+                "type": "string"
               },
               "subtype": {
                 "type": "string"
@@ -1567,6 +1916,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -1618,6 +1970,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -1626,6 +2017,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -2114,6 +2508,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -2165,6 +2562,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -2173,6 +2609,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -2424,6 +2863,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -2475,6 +2917,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -2483,6 +2964,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -2741,6 +3225,9 @@
                           "favourite": {
                             "type": "boolean"
                           },
+                          "fit": {
+                            "type": "string"
+                          },
                           "formality": {
                             "type": "string"
                           },
@@ -2792,6 +3279,45 @@
                           "notes": {
                             "type": "string"
                           },
+                          "pattern": {
+                            "type": "string"
+                          },
+                          "purchase": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "currency_exponent": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "date": {
+                                "type": "string"
+                              },
+                              "evidence": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              "object"
+                            ]
+                          },
                           "seasons": {
                             "items": {
                               "type": "string"
@@ -2800,6 +3326,9 @@
                               "null",
                               "array"
                             ]
+                          },
+                          "style": {
+                            "type": "string"
                           },
                           "subtype": {
                             "type": "string"
@@ -3234,6 +3763,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -3285,6 +3817,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -3293,6 +3864,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -3557,6 +4131,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -3608,6 +4185,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -3616,6 +4232,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -4190,6 +4809,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -4241,6 +4863,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -4249,6 +4910,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -4516,6 +5180,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -4567,6 +5234,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -4575,6 +5281,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -4981,6 +5690,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -5032,6 +5744,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -5040,6 +5791,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -5270,6 +6024,9 @@
                           "favourite": {
                             "type": "boolean"
                           },
+                          "fit": {
+                            "type": "string"
+                          },
                           "formality": {
                             "type": "string"
                           },
@@ -5321,6 +6078,45 @@
                           "notes": {
                             "type": "string"
                           },
+                          "pattern": {
+                            "type": "string"
+                          },
+                          "purchase": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "currency_exponent": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "date": {
+                                "type": "string"
+                              },
+                              "evidence": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              "object"
+                            ]
+                          },
                           "seasons": {
                             "items": {
                               "type": "string"
@@ -5329,6 +6125,9 @@
                               "null",
                               "array"
                             ]
+                          },
+                          "style": {
+                            "type": "string"
                           },
                           "subtype": {
                             "type": "string"
@@ -5566,6 +6365,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -5617,6 +6419,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -5625,6 +6466,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -5855,6 +6699,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -5906,6 +6753,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -5914,6 +6800,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -6139,6 +7028,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -6190,6 +7082,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -6198,6 +7129,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -6420,6 +7354,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -6471,6 +7408,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -6479,6 +7455,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -6709,6 +7688,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -6760,6 +7742,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -6768,6 +7789,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -6965,6 +7989,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -7016,6 +8043,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -7024,6 +8090,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -7231,6 +8300,9 @@
                           "favourite": {
                             "type": "boolean"
                           },
+                          "fit": {
+                            "type": "string"
+                          },
                           "formality": {
                             "type": "string"
                           },
@@ -7282,6 +8354,45 @@
                           "notes": {
                             "type": "string"
                           },
+                          "pattern": {
+                            "type": "string"
+                          },
+                          "purchase": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "currency_exponent": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "date": {
+                                "type": "string"
+                              },
+                              "evidence": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              "object"
+                            ]
+                          },
                           "seasons": {
                             "items": {
                               "type": "string"
@@ -7290,6 +8401,9 @@
                               "null",
                               "array"
                             ]
+                          },
+                          "style": {
+                            "type": "string"
                           },
                           "subtype": {
                             "type": "string"
@@ -7507,6 +8621,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -7558,6 +8675,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -7566,6 +8722,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -7776,6 +8935,9 @@
                         "favourite": {
                           "type": "boolean"
                         },
+                        "fit": {
+                          "type": "string"
+                        },
                         "formality": {
                           "type": "string"
                         },
@@ -7827,6 +8989,45 @@
                         "notes": {
                           "type": "string"
                         },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "amount_minor": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "currency_exponent": {
+                              "type": [
+                                "null",
+                                "integer"
+                              ]
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "evidence": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            "object"
+                          ]
+                        },
                         "seasons": {
                           "items": {
                             "type": "string"
@@ -7835,6 +9036,9 @@
                             "null",
                             "array"
                           ]
+                        },
+                        "style": {
+                          "type": "string"
                         },
                         "subtype": {
                           "type": "string"
@@ -8249,14 +9453,397 @@
               "array"
             ]
           },
+          "colours": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "colour": {
+                  "type": "string"
+                },
+                "garments": {
+                  "type": "integer"
+                },
+                "wear_events": {
+                  "type": "integer"
+                },
+                "worn_garments": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "colour",
+                "garments",
+                "worn_garments",
+                "wear_events"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "colours_truncated": {
+            "type": "boolean"
+          },
+          "feedback": {
+            "additionalProperties": false,
+            "properties": {
+              "comfort": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "feedback": {
+                      "type": "integer"
+                    },
+                    "rating": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "rating",
+                    "feedback"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "comfort_rated": {
+                "type": "integer"
+              },
+              "comments": {
+                "type": "integer"
+              },
+              "rated": {
+                "type": "integer"
+              },
+              "ratings": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "feedback": {
+                      "type": "integer"
+                    },
+                    "rating": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "rating",
+                    "feedback"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "records": {
+                "type": "integer"
+              },
+              "style": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "feedback": {
+                      "type": "integer"
+                    },
+                    "rating": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "rating",
+                    "feedback"
+                  ],
+                  "type": "object"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "style_rated": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "records",
+              "rated",
+              "comfort_rated",
+              "style_rated",
+              "comments",
+              "ratings",
+              "comfort",
+              "style"
+            ],
+            "type": "object"
+          },
           "from": {
             "type": "string"
           },
           "garments": {
             "type": "integer"
           },
+          "least_worn": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "archived": {
+                  "type": "boolean"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "cost_per_wear": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount_minor": {
+                      "type": "integer"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "currency_exponent": {
+                      "type": "integer"
+                    },
+                    "wear_events": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "amount_minor",
+                    "currency_exponent",
+                    "wear_events"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "garment_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "wear_days": {
+                  "type": "integer"
+                },
+                "wear_events": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "garment_id",
+                "name",
+                "category",
+                "archived",
+                "wear_events",
+                "wear_days"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "most_worn": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "archived": {
+                  "type": "boolean"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "cost_per_wear": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount_minor": {
+                      "type": "integer"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "currency_exponent": {
+                      "type": "integer"
+                    },
+                    "wear_events": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "amount_minor",
+                    "currency_exponent",
+                    "wear_events"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "garment_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "wear_days": {
+                  "type": "integer"
+                },
+                "wear_events": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "garment_id",
+                "name",
+                "category",
+                "archived",
+                "wear_events",
+                "wear_days"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "never_worn": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "archived": {
+                  "type": "boolean"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "created_on": {
+                  "type": "string"
+                },
+                "garment_id": {
+                  "type": "string"
+                },
+                "last_worn_on": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "wear_events": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "garment_id",
+                "name",
+                "category",
+                "archived",
+                "created_on",
+                "wear_events",
+                "last_worn_on"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "never_worn_total": {
+            "type": "integer"
+          },
+          "not_worn_in_range": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "archived": {
+                  "type": "boolean"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "created_on": {
+                  "type": "string"
+                },
+                "garment_id": {
+                  "type": "string"
+                },
+                "last_worn_on": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "wear_events": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "garment_id",
+                "name",
+                "category",
+                "archived",
+                "created_on",
+                "wear_events",
+                "last_worn_on"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "not_worn_in_range_total": {
+            "type": "integer"
+          },
           "outfit_events": {
             "type": "integer"
+          },
+          "ranked_limit": {
+            "type": "integer"
+          },
+          "selections": {
+            "additionalProperties": false,
+            "properties": {
+              "cleared_days": {
+                "type": "integer"
+              },
+              "confirmed_days": {
+                "type": "integer"
+              },
+              "planned_outfits": {
+                "type": "integer"
+              },
+              "selected_days": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "selected_days",
+              "confirmed_days",
+              "cleared_days",
+              "planned_outfits"
+            ],
+            "type": "object"
           },
           "to": {
             "type": "string"
@@ -8264,8 +9851,40 @@
           "unworn_garments": {
             "type": "integer"
           },
+          "unworn_limit": {
+            "type": "integer"
+          },
           "wear_days": {
             "type": "integer"
+          },
+          "weeks": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "wear_days": {
+                  "type": "integer"
+                },
+                "wear_events": {
+                  "type": "integer"
+                },
+                "week_start": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "week_start",
+                "wear_events",
+                "wear_days"
+              ],
+              "type": "object"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "weeks_truncated": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -8273,7 +9892,21 @@
           "wear_days",
           "garments",
           "unworn_garments",
-          "categories"
+          "categories",
+          "most_worn",
+          "least_worn",
+          "ranked_limit",
+          "not_worn_in_range",
+          "not_worn_in_range_total",
+          "never_worn",
+          "never_worn_total",
+          "unworn_limit",
+          "colours",
+          "colours_truncated",
+          "weeks",
+          "weeks_truncated",
+          "feedback",
+          "selections"
         ],
         "type": "object"
       },
@@ -8478,6 +10111,9 @@
                 "favourite": {
                   "type": "boolean"
                 },
+                "fit": {
+                  "type": "string"
+                },
                 "formality": {
                   "type": "string"
                 },
@@ -8529,6 +10165,45 @@
                 "notes": {
                   "type": "string"
                 },
+                "pattern": {
+                  "type": "string"
+                },
+                "purchase": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amount": {
+                      "type": "string"
+                    },
+                    "amount_minor": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "currency_exponent": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
                 "seasons": {
                   "items": {
                     "type": "string"
@@ -8537,6 +10212,9 @@
                     "null",
                     "array"
                   ]
+                },
+                "style": {
+                  "type": "string"
                 },
                 "subtype": {
                   "type": "string"
@@ -8682,6 +10360,9 @@
                           "favourite": {
                             "type": "boolean"
                           },
+                          "fit": {
+                            "type": "string"
+                          },
                           "formality": {
                             "type": "string"
                           },
@@ -8733,6 +10414,45 @@
                           "notes": {
                             "type": "string"
                           },
+                          "pattern": {
+                            "type": "string"
+                          },
+                          "purchase": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "currency_exponent": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "date": {
+                                "type": "string"
+                              },
+                              "evidence": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              "object"
+                            ]
+                          },
                           "seasons": {
                             "items": {
                               "type": "string"
@@ -8741,6 +10461,9 @@
                               "null",
                               "array"
                             ]
+                          },
+                          "style": {
+                            "type": "string"
                           },
                           "subtype": {
                             "type": "string"
@@ -9117,6 +10840,12 @@
                   "occasion": {
                     "type": "string"
                   },
+                  "precipitation": {
+                    "type": [
+                      "null",
+                      "boolean"
+                    ]
+                  },
                   "required_ids": {
                     "items": {
                       "type": "string"
@@ -9128,6 +10857,12 @@
                   },
                   "swap_role": {
                     "type": "string"
+                  },
+                  "temperature_c": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
                   },
                   "variant": {
                     "type": "integer"
@@ -9430,6 +11165,12 @@
                   "occasion": {
                     "type": "string"
                   },
+                  "precipitation": {
+                    "type": [
+                      "null",
+                      "boolean"
+                    ]
+                  },
                   "required_ids": {
                     "items": {
                       "type": "string"
@@ -9441,6 +11182,12 @@
                   },
                   "swap_role": {
                     "type": "string"
+                  },
+                  "temperature_c": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
                   },
                   "variant": {
                     "type": "integer"
@@ -9730,6 +11477,12 @@
                   "occasion": {
                     "type": "string"
                   },
+                  "precipitation": {
+                    "type": [
+                      "null",
+                      "boolean"
+                    ]
+                  },
                   "required_ids": {
                     "items": {
                       "type": "string"
@@ -9741,6 +11494,12 @@
                   },
                   "swap_role": {
                     "type": "string"
+                  },
+                  "temperature_c": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
                   },
                   "variant": {
                     "type": "integer"
@@ -10030,6 +11789,12 @@
                   "occasion": {
                     "type": "string"
                   },
+                  "precipitation": {
+                    "type": [
+                      "null",
+                      "boolean"
+                    ]
+                  },
                   "required_ids": {
                     "items": {
                       "type": "string"
@@ -10041,6 +11806,12 @@
                   },
                   "swap_role": {
                     "type": "string"
+                  },
+                  "temperature_c": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
                   },
                   "variant": {
                     "type": "integer"
@@ -10493,6 +12264,9 @@
                           "favourite": {
                             "type": "boolean"
                           },
+                          "fit": {
+                            "type": "string"
+                          },
                           "formality": {
                             "type": "string"
                           },
@@ -10544,6 +12318,45 @@
                           "notes": {
                             "type": "string"
                           },
+                          "pattern": {
+                            "type": "string"
+                          },
+                          "purchase": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "amount_minor": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "currency_exponent": {
+                                "type": [
+                                  "null",
+                                  "integer"
+                                ]
+                              },
+                              "date": {
+                                "type": "string"
+                              },
+                              "evidence": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": [
+                              "null",
+                              "object"
+                            ]
+                          },
                           "seasons": {
                             "items": {
                               "type": "string"
@@ -10552,6 +12365,9 @@
                               "null",
                               "array"
                             ]
+                          },
+                          "style": {
+                            "type": "string"
                           },
                           "subtype": {
                             "type": "string"
@@ -10762,6 +12578,9 @@
                             "favourite": {
                               "type": "boolean"
                             },
+                            "fit": {
+                              "type": "string"
+                            },
                             "formality": {
                               "type": "string"
                             },
@@ -10813,6 +12632,45 @@
                             "notes": {
                               "type": "string"
                             },
+                            "pattern": {
+                              "type": "string"
+                            },
+                            "purchase": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "amount_minor": {
+                                  "type": [
+                                    "null",
+                                    "integer"
+                                  ]
+                                },
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "currency_exponent": {
+                                  "type": [
+                                    "null",
+                                    "integer"
+                                  ]
+                                },
+                                "date": {
+                                  "type": "string"
+                                },
+                                "evidence": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": [
+                                "null",
+                                "object"
+                              ]
+                            },
                             "seasons": {
                               "items": {
                                 "type": "string"
@@ -10821,6 +12679,9 @@
                                 "null",
                                 "array"
                               ]
+                            },
+                            "style": {
+                              "type": "string"
                             },
                             "subtype": {
                               "type": "string"
@@ -11114,6 +12975,9 @@
                             "favourite": {
                               "type": "boolean"
                             },
+                            "fit": {
+                              "type": "string"
+                            },
                             "formality": {
                               "type": "string"
                             },
@@ -11165,6 +13029,45 @@
                             "notes": {
                               "type": "string"
                             },
+                            "pattern": {
+                              "type": "string"
+                            },
+                            "purchase": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "amount_minor": {
+                                  "type": [
+                                    "null",
+                                    "integer"
+                                  ]
+                                },
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "currency_exponent": {
+                                  "type": [
+                                    "null",
+                                    "integer"
+                                  ]
+                                },
+                                "date": {
+                                  "type": "string"
+                                },
+                                "evidence": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": [
+                                "null",
+                                "object"
+                              ]
+                            },
                             "seasons": {
                               "items": {
                                 "type": "string"
@@ -11173,6 +13076,9 @@
                                 "null",
                                 "array"
                               ]
+                            },
+                            "style": {
+                              "type": "string"
                             },
                             "subtype": {
                               "type": "string"
@@ -11343,6 +13249,12 @@
           "occasion": {
             "type": "string"
           },
+          "precipitation": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
           "required_ids": {
             "items": {
               "type": "string"
@@ -11354,6 +13266,12 @@
           },
           "swap_role": {
             "type": "string"
+          },
+          "temperature_c": {
+            "type": [
+              "null",
+              "integer"
+            ]
           },
           "variant": {
             "type": "integer"
@@ -11833,7 +13751,7 @@
     },
     "/api/v1/operations/garments_create": {
       "post": {
-        "description": "Create an owned garment; a photograph is optional.",
+        "description": "Create an owned garment; a photograph is optional. Purchase amounts are integer minor units of an explicit currency and are never converted or inferred.",
         "operationId": "garments_create",
         "requestBody": {
           "content": {
@@ -12043,7 +13961,7 @@
     },
     "/api/v1/operations/garments_list": {
       "post": {
-        "description": "Filter and paginate inventory in stable ID order.",
+        "description": "Filter inventory by name/brand/notes text, category, availability, colour, season, favourite and confirmed wash method, then paginate with a cursor bound to that exact filter and sort. Sorts: id, name, recent (updated), added (created), each with a stable tie-break. total_matches counts the same filters in this read and is not an immutable snapshot.",
         "operationId": "garments_list",
         "requestBody": {
           "content": {
@@ -12253,7 +14171,7 @@
     },
     "/api/v1/operations/garments_update": {
       "post": {
-        "description": "Patch an active garment using the current version; null clears optional attributes.",
+        "description": "Patch an active garment using the current version; null clears optional attributes, including the purchase record. An amount requires its currency; amounts are never converted.",
         "operationId": "garments_update",
         "requestBody": {
           "content": {
@@ -15403,7 +17321,7 @@
     },
     "/api/v1/operations/wardrobe_analyze": {
       "post": {
-        "description": "Summarize actual outfit history and wardrobe usage in a date range.",
+        "description": "Summarize confirmed outfit history in an inclusive date range: counts, category usage, most/least worn, not-worn-in-range versus never-worn, colour distribution, weekly trends, explicit feedback and saved selections/plans. Only outfits whose current state is worn are worn; plans, selections, views and ratings are counted separately and never as wears. Ranked and never-worn lists are capped and report their full totals; cost per wear is per garment in its own currency and is absent without a recorded amount or a confirmed wear.",
         "operationId": "wardrobe_analyze",
         "requestBody": {
           "content": {
@@ -16453,7 +18371,7 @@
     },
     "/api/v1/operations/wardrobe_suggest": {
       "post": {
-        "description": "Rank distinct available combinations using saved preferences and version-matched rated wears through the requested date; enforce avoided colours/repeat rules without saving a plan or wear.",
+        "description": "Rank distinct available combinations using saved preferences and version-matched rated wears through the requested date; enforce avoided colours/repeat rules without saving a plan or wear. An optional temperature_c is compared with the owner's cold/hot thresholds and sensitivity against each garment's recorded warmth tag only: unknown warmth stays neutral and is reported, and reported rain is disclosed as unassessable because no garment records water resistance.",
         "operationId": "wardrobe_suggest",
         "requestBody": {
           "content": {

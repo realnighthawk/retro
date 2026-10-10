@@ -239,6 +239,25 @@ import FoundationModels
         self.requests = requests; self.read = read
     }
 
+    // The delegation primitive behind the language dispatcher: the existing durable request journal, the
+    // 90-second deadline, owner questions and polling, without the text-answer state machine.
+    func delegate(_ query: String, connected: Bool) async throws -> String {
+        guard connected else { throw WardrobeWriteError("Connected help is off. Use the on-device reading or the manual controls.") }
+        try WardrobeAgentRequests.validateQuery(query)
+        guard requests.isCurrentOwner else { throw WardrobeWriteError("Sign in to the original account to continue.") }
+        let run = WardrobeAssistantRun(requests: requests, question: "Read a wardrobe request", day: WardrobeVocabulary.dayKey(Date()), remoteEnabled: true,
+                                       current: { [weak self] in self?.requests.isCurrentOwner ?? false }, read: read,
+                                       waitForOwner: { [weak self] request in
+                                           guard let self else { throw CancellationError() }
+                                           try await self.waitForOwner(request, generation: UUID())
+                                       }, progress: { _ in })
+        let id = try run.requests.begin(query)
+        let result = try await run.poll(id)
+        let answer = (result.answer ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !answer.isEmpty else { throw WardrobeWriteError("The connected agent returned no readable answer. Use the on-device reading or the manual controls.") }
+        return answer
+    }
+
     func ask(_ question: String, day: String, connected: Bool, onDevice: Bool = true) {
         guard !running else { return }
         do {

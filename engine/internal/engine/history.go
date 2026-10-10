@@ -94,64 +94,7 @@ func history(ctx context.Context, u *unit, in HistoryInput) (Page[Change], error
 	}
 	if len(result.Items) > limit {
 		result.Items = result.Items[:limit]
-		result.NextCursor = cursor(filters, strconv.FormatInt(result.Items[limit-1].ID, 10))
+		result.NextCursor = cursor(filters, strconv.FormatInt(result.Items[limit-1].ID, 10), "")
 	}
 	return result, nil
-}
-
-type AnalyzeInput struct {
-	From string `json:"from,omitempty"`
-	To   string `json:"to,omitempty"`
-}
-type CategoryUsage struct {
-	Category     string `json:"category"`
-	Garments     int64  `json:"garments"`
-	WornGarments int64  `json:"worn_garments"`
-	WearEvents   int64  `json:"wear_events"`
-}
-type Analysis struct {
-	From           string          `json:"from,omitempty"`
-	To             string          `json:"to,omitempty"`
-	OutfitEvents   int64           `json:"outfit_events"`
-	WearDays       int64           `json:"wear_days"`
-	Garments       int64           `json:"garments"`
-	UnwornGarments int64           `json:"unworn_garments"`
-	Categories     []CategoryUsage `json:"categories"`
-}
-
-func analyze(ctx context.Context, u *unit, in AnalyzeInput) (Analysis, error) {
-	result := Analysis{From: in.From, To: in.To, Categories: []CategoryUsage{}}
-	if in.From != "" {
-		if e := date(in.From); e != nil {
-			return result, e
-		}
-	}
-	if in.To != "" {
-		if e := date(in.To); e != nil {
-			return result, e
-		}
-	}
-	if in.From != "" && in.To != "" && in.From > in.To {
-		return result, invalid("from must not exceed to")
-	}
-	e := u.tx.QueryRow(ctx, `SELECT count(*),count(DISTINCT day) FROM retro.outfits WHERE state='worn' AND ($1='' OR day>=NULLIF($1,'')::date) AND ($2='' OR day<=NULLIF($2,'')::date)`, in.From, in.To).Scan(&result.OutfitEvents, &result.WearDays)
-	if e != nil {
-		return result, e
-	}
-	rows, e := u.tx.Query(ctx, `WITH usage AS (SELECT i.garment_id,count(*) events FROM retro.outfit_items i JOIN retro.outfits o ON o.id=i.outfit_id WHERE o.state='worn' AND ($1='' OR o.day>=NULLIF($1,'')::date) AND ($2='' OR o.day<=NULLIF($2,'')::date) GROUP BY i.garment_id)
- SELECT g.category,count(*),count(usage.garment_id),coalesce(sum(usage.events),0)::bigint FROM retro.garments g LEFT JOIN usage ON g.id=usage.garment_id GROUP BY g.category ORDER BY g.category`, in.From, in.To)
-	if e != nil {
-		return result, e
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var c CategoryUsage
-		if e = rows.Scan(&c.Category, &c.Garments, &c.WornGarments, &c.WearEvents); e != nil {
-			return result, e
-		}
-		result.Categories = append(result.Categories, c)
-		result.Garments += c.Garments
-		result.UnwornGarments += c.Garments - c.WornGarments
-	}
-	return result, rows.Err()
 }

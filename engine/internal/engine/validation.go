@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -66,10 +67,13 @@ func validateGarment(g *GarmentData) error {
 	if !oneOf(g.Warmth, "light", "mid", "warm", "unknown") {
 		return invalid("unsupported warmth")
 	}
-	for _, text := range []string{g.Subtype, g.Formality, g.Material, g.Brand} {
+	for _, text := range []string{g.Subtype, g.Formality, g.Material, g.Brand, g.Pattern, g.Style, g.Fit} {
 		if len(text) > 100 {
 			return invalid("attribute exceeds 100 bytes")
 		}
+	}
+	if e := normalizePurchase(&g.Purchase); e != nil {
+		return e
 	}
 	if len(g.Notes) > 4000 {
 		return invalid("notes exceeds 4000 bytes")
@@ -106,6 +110,115 @@ func validateGarment(g *GarmentData) error {
 	}
 	if g.MediaIDs == nil {
 		g.MediaIDs = []string{}
+	}
+	return nil
+}
+
+// ISO 4217 exponents that differ from the usual two minor units; other codes use two.
+// ponytail: a short table plus a two-decimal default, add a full ISO feed only if a real currency misreports.
+var currencyExponents = map[string]int{
+	"BIF": 0, "CLP": 0, "DJF": 0, "GNF": 0, "ISK": 0, "JPY": 0, "KMF": 0, "KRW": 0, "PYG": 0,
+	"RWF": 0, "UGX": 0, "UYI": 0, "VND": 0, "VUV": 0, "XAF": 0, "XOF": 0, "XPF": 0,
+	"BHD": 3, "IQD": 3, "JOD": 3, "KWD": 3, "LYD": 3, "OMR": 3, "TND": 3,
+}
+
+func currencyExponent(code string) int {
+	if exponent, ok := currencyExponents[code]; ok {
+		return exponent
+	}
+	return 2
+}
+func currencyCode(value string) bool {
+	if len(value) != 3 {
+		return false
+	}
+	for _, c := range value {
+		if c < 'A' || c > 'Z' {
+			return false
+		}
+	}
+	return true
+}
+
+// parseAmount reads a plain decimal into minor units without floating point. Precision beyond the
+// currency's exponent is rejected rather than rounded.
+func parseAmount(value string, exponent int) (int64, error) {
+	whole, fraction, _ := strings.Cut(value, ".")
+	if whole == "" || len(fraction) > exponent {
+		return 0, invalid("amount must be a plain decimal within the currency's minor units")
+	}
+	for _, c := range whole + fraction {
+		if c < '0' || c > '9' {
+			return 0, invalid("amount must be a plain decimal within the currency's minor units")
+		}
+	}
+	digits := strings.TrimLeft(whole+fraction+strings.Repeat("0", exponent-len(fraction)), "0")
+	if digits == "" {
+		return 0, nil
+	}
+	if len(digits) > 15 {
+		return 0, invalid("amount is out of range")
+	}
+	value64, e := strconv.ParseInt(digits, 10, 64)
+	if e != nil || value64 > 999999999999999 {
+		return 0, invalid("amount is out of range")
+	}
+	return value64, nil
+}
+
+// normalizePurchase validates an optional purchase record, deriving the amount and exponent and
+// dropping an entirely empty record so clearing works through the ordinary patch.
+func normalizePurchase(target **PurchaseRecord) error {
+	if *target == nil {
+		return nil
+	}
+	p := *target
+	p.Date = strings.TrimSpace(p.Date)
+	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
+	p.Evidence = strings.TrimSpace(p.Evidence)
+	p.Amount = strings.TrimSpace(p.Amount)
+	if p.Source == "" {
+		p.Source = "manual"
+	}
+	if !oneOf(p.Source, "manual", "receipt", "connected") {
+		return invalid("unsupported purchase source")
+	}
+	if len(p.Evidence) > 2000 {
+		return invalid("purchase evidence exceeds 2000 bytes")
+	}
+	if p.Source != "manual" && p.Evidence == "" {
+		return invalid("a recorded purchase source requires bounded evidence")
+	}
+	if p.Date != "" {
+		if e := date(p.Date); e != nil {
+			return invalid("purchase date must be YYYY-MM-DD")
+		}
+	}
+	if p.Currency != "" && !currencyCode(p.Currency) {
+		return invalid("currency must be a three-letter ISO 4217 code")
+	}
+	if p.Amount != "" {
+		if p.Currency == "" {
+			return invalid("a purchase amount requires its currency")
+		}
+		minor, e := parseAmount(p.Amount, currencyExponent(p.Currency))
+		if e != nil {
+			return e
+		}
+		p.AmountMinor = &minor
+	}
+	p.Amount = ""
+	if p.AmountMinor != nil && (*p.AmountMinor < 0 || *p.AmountMinor > 999999999999999) {
+		return invalid("purchase amount is out of range")
+	}
+	if p.Currency == "" {
+		p.CurrencyExponent = nil
+	} else {
+		exponent := currencyExponent(p.Currency)
+		p.CurrencyExponent = &exponent
+	}
+	if p.Date == "" && p.Currency == "" && p.AmountMinor == nil && p.Evidence == "" && p.Source == "manual" {
+		*target = nil
 	}
 	return nil
 }
@@ -188,40 +301,48 @@ func patchFields(target any, patch map[string]json.RawMessage, allowed ...string
 	}
 	return nil
 }
-func page(in ListInput, filters any) (int, string, error) {
+
+// page returns the limit, the record to continue after and that record's sort key. The key is
+// empty for ID-ordered lists; sorted lists compare it as part of the keyset position.
+func page(in ListInput, filters any) (int, string, string, error) {
 	limit := in.Limit
 	if limit == 0 {
 		limit = 50
 	}
 	if limit < 1 || limit > 200 {
-		return 0, "", invalid("limit must be 1-200")
+		return 0, "", "", invalid("limit must be 1-200")
 	}
 	if in.Cursor == "" {
-		return limit, "", nil
+		return limit, "", "", nil
 	}
 	raw, e := base64.RawURLEncoding.DecodeString(in.Cursor)
 	if e != nil {
-		return 0, "", invalid("invalid cursor")
+		return 0, "", "", invalid("invalid cursor")
 	}
 	var c struct {
 		Scope string `json:"scope"`
 		After string `json:"after"`
+		Key   string `json:"key"`
 	}
 	if json.Unmarshal(raw, &c) != nil || c.Scope != scope(filters) {
-		return 0, "", invalid("cursor does not match this query")
+		return 0, "", "", invalid("cursor does not match this query")
 	}
 	if _, e = id(c.After); e != nil {
-		return 0, "", invalid("invalid cursor")
+		return 0, "", "", invalid("invalid cursor")
 	}
-	return limit, c.After, nil
+	return limit, c.After, c.Key, nil
 }
 func scope(filters any) string {
 	raw, _ := json.Marshal(filters)
 	h := sha256.Sum256(raw)
 	return hex.EncodeToString(h[:])
 }
-func cursor(filters any, after string) *string {
-	raw, _ := json.Marshal(map[string]string{"scope": scope(filters), "after": after})
+func cursor(filters any, after, key string) *string {
+	raw, _ := json.Marshal(struct {
+		Scope string `json:"scope"`
+		After string `json:"after"`
+		Key   string `json:"key,omitempty"`
+	}{scope(filters), after, key})
 	v := base64.RawURLEncoding.EncodeToString(raw)
 	return &v
 }

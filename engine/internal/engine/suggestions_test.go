@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"reflect"
 	"strings"
@@ -181,5 +182,69 @@ func TestSwapReplacesOnlyItsRequestedRoleAndNeverDropsIt(t *testing.T) {
 	result, e = buildSuggestions([]Garment{dress, feet, coat, otherCoat}, in, p, nil)
 	if e != nil || len(result) != 1 || !containsPiece(result[0], otherCoat.ID) {
 		t.Fatal("minimal layering dropped the requested coat replacement")
+	}
+}
+
+// N05: a supplied temperature moves ranking only through recorded warmth tags and the owner's own
+// thresholds, and an unknown warmth stays neutral instead of being scored as wrong.
+func TestTemperatureUsesOwnerThresholdsAndRecordedWarmth(t *testing.T) {
+	p := preferenceDefaults()
+	p.ColdThresholdC, p.HotThresholdC, p.TemperatureSensitivity = 10, 24, "normal"
+	// Isolate the temperature term: the underused-item bonus would otherwise score every untagged piece.
+	p.PreferUnderusedItems = false
+	for _, tc := range []struct{ temperature, band string }{{"5", "cold"}, {"10", "cold"}, {"11", "mild"}, {"23", "mild"}, {"24", "hot"}, {"30", "hot"}} {
+		temperature := 0
+		fmt.Sscanf(tc.temperature, "%d", &temperature)
+		if got := temperatureBand(temperature, p.ColdThresholdC, p.HotThresholdC); got != tc.band {
+			t.Fatalf("%s°C banded as %s", tc.temperature, got)
+		}
+	}
+	if temperatureWeight("low") >= temperatureWeight("normal") || temperatureWeight("normal") >= temperatureWeight("high") {
+		t.Fatal("sensitivity must scale the temperature weight")
+	}
+	for _, tc := range []struct {
+		band, warmth string
+		points       int
+	}{{"cold", "warm", 4}, {"cold", "light", -4}, {"cold", "mid", 0}, {"hot", "light", 4}, {"hot", "warm", -4},
+		{"mild", "mid", 4}, {"mild", "warm", 0}, {"cold", "unknown", 0}, {"hot", "", 0}} {
+		points, _ := warmthFit(tc.band, tc.warmth, 4)
+		if points != tc.points {
+			t.Fatalf("%s warmth on a %s day scored %d", tc.warmth, tc.band, points)
+		}
+	}
+	// The rank reasons and the score must agree, and a missing tag must not appear as a penalty.
+	warm, light, unknown := rankedGarment("top", "Warm"), rankedGarment("top", "Light"), rankedGarment("top", "Unknown")
+	warm.Warmth, light.Warmth = "warm", "light"
+	cold := 4
+	in := SuggestInput{Day: "2026-10-09", TemperatureC: &cold}
+	warmScore, warmReasons := garmentRank(warm, in, p, ratingTotal{})
+	lightScore, _ := garmentRank(light, in, p, ratingTotal{})
+	unknownScore, unknownReasons := garmentRank(unknown, in, p, ratingTotal{})
+	if warmScore != 4 || lightScore != -4 || unknownScore != 0 {
+		t.Fatalf("cold day scored warm %d, light %d, unknown %d", warmScore, lightScore, unknownScore)
+	}
+	if len(warmReasons) != 1 || !strings.Contains(warmReasons[0], "4°C") || !strings.Contains(warmReasons[0], "cold day") {
+		t.Fatalf("the temperature reason must name the value and the band: %v", warmReasons)
+	}
+	if len(unknownReasons) != 0 {
+		t.Fatalf("an unknown warmth must not produce a temperature reason: %v", unknownReasons)
+	}
+	// No temperature, no temperature scoring or reason at all.
+	plain, _ := garmentRank(warm, SuggestInput{Day: "2026-10-09"}, p, ratingTotal{})
+	if plain != 0 {
+		t.Fatalf("warmth was scored without a temperature: %d", plain)
+	}
+	// A supplied temperature changes the ranking when the tags differ.
+	bottom, feet := rankedGarment("bottom", "Trousers"), rankedGarment("footwear", "Shoes")
+	warmSweater, lightTee := rankedGarment("top", "Sweater"), rankedGarment("top", "Tee")
+	warmSweater.Warmth, lightTee.Warmth = "warm", "light"
+	hot := 30
+	options, e := buildSuggestions([]Garment{warmSweater, lightTee, bottom, feet}, SuggestInput{Day: "2026-10-09", TemperatureC: &hot}, p, nil)
+	if e != nil || len(options) == 0 || !containsPiece(options[0], lightTee.ID) {
+		t.Fatalf("a hot day did not prefer the light layer: %v", e)
+	}
+	coldOptions, e := buildSuggestions([]Garment{warmSweater, lightTee, bottom, feet}, SuggestInput{Day: "2026-10-09", TemperatureC: &cold}, p, nil)
+	if e != nil || len(coldOptions) == 0 || !containsPiece(coldOptions[0], warmSweater.ID) {
+		t.Fatalf("a cold day did not prefer the warm layer: %v", e)
 	}
 }

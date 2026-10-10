@@ -477,6 +477,11 @@ policy, and no generic assistant response automatically saves a wardrobe record.
 
 ## Validation status
 
+Latest native evidence (2026-10-09): the signed Debug build through P1–P3.4 passed, installed and launched on the
+owner's iPhone 17 Pro, with its running process confirmed. Suites, migrations, gateway build/runtime, actual Apple/
+agent/provider flows and full device/accessibility checks remain unverified. The deferred-build notes below record
+the earlier source iterations. New P4–P6 work starts from the [implementation handoff](retro-p4-p6-handoff.md).
+
 Focused backend/native tests and shared preference/feedback fixtures are authored. Go formatting, contract generation
 and Xcode project generation completed. Gateway MCP source and focused tests are also authored; dependencies are resolved.
 The iOS MCP transport, journal, loop/controller and native owner-input UI are now authored, with focused tests for

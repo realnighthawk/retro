@@ -124,7 +124,10 @@ struct WardrobeCandidateAssistanceView: View {
                 ForEach(Array(facts.result.items.enumerated()), id: \.element.id) { index, option in
                     Section("Option \(index + 1) · engine facts") {
                         ForEach(option.items, id: \.garmentID) { item in
-                            Text((item.name ?? "Piece") + " · " + WardrobeVocabulary.title(item.role) + (facts.query.requiredIDs.contains(item.garmentID) ? " · Locked" : ""))
+                            let name = item.name ?? "Piece"
+                            let role = WardrobeVocabulary.title(item.role)
+                            let locked = facts.query.requiredIDs.contains(item.garmentID) ? " · Locked" : ""
+                            Text("\(name) · \(role)\(locked)")
                         }
                         LabeledContent("Ranking score", value: String(option.score ?? 0))
                         if !option.missingRoles.isEmpty { Text("Missing: " + option.missingRoles.map(WardrobeVocabulary.title).joined(separator: ", ")).font(.footnote) }

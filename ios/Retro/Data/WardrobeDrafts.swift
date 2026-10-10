@@ -1,5 +1,38 @@
 import Foundation
 
+struct WardrobePurchaseDraft: Codable, Equatable {
+    var date = ""
+    var amount = ""
+    var currency = ""
+    var evidence = ""
+    var source = "manual"
+
+    var isEmpty: Bool { date.isEmpty && amount.isEmpty && currency.isEmpty && evidence.isEmpty && source == "manual" }
+
+    init() {}
+    init(_ purchase: WardrobePurchase) {
+        date = purchase.date ?? ""
+        amount = purchase.amountText ?? ""
+        currency = purchase.currency ?? ""
+        evidence = purchase.evidence ?? ""
+        source = purchase.source ?? "manual"
+    }
+    func fields() throws -> [String: Any] {
+        let date = date.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currency = currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let amount = amount.trimmingCharacters(in: .whitespacesAndNewlines)
+        let evidence = evidence.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard date.isEmpty || WardrobeDraftValidation.date(date) != nil else { throw WardrobeWriteError("Use a purchase date like 2026-03-02.") }
+        guard amount.isEmpty || !currency.isEmpty else { throw WardrobeWriteError("Record the purchase currency with its amount.") }
+        guard amount.allSatisfy({ $0.isNumber || $0 == "." }) else { throw WardrobeWriteError("Use digits and a decimal point for the purchase amount.") }
+        guard currency.isEmpty || (currency.count == 3 && currency.allSatisfy { $0.isASCII && $0.isUppercase }) else { throw WardrobeWriteError("Use a three-letter currency code such as USD.") }
+        guard ["manual", "receipt", "connected"].contains(source) else { throw WardrobeWriteError("Choose how this purchase was recorded.") }
+        guard source == "manual" || !evidence.isEmpty else { throw WardrobeWriteError("A receipt or connected purchase needs its evidence text.") }
+        guard evidence.utf8.count <= 2000 else { throw WardrobeWriteError("Purchase evidence is too long (maximum 2000 UTF-8 bytes).") }
+        return ["date": date, "currency": currency, "amount": amount, "evidence": evidence, "source": source]
+    }
+}
+
 struct WardrobeGarmentDraft: Codable, Equatable {
     var name = ""
     var category = "top"
@@ -13,6 +46,16 @@ struct WardrobeGarmentDraft: Codable, Equatable {
     var brand = ""
     var notes = ""
     var favourite = false
+    // Optional so drafts saved before these fields existed still open; an empty field means unknown.
+    var pattern: String? = nil
+    var style: String? = nil
+    var fit: String? = nil
+    var purchase: WardrobePurchaseDraft? = nil
+
+    var patternText: String { get { pattern ?? "" } set { pattern = newValue.isEmpty ? nil : newValue } }
+    var styleText: String { get { style ?? "" } set { style = newValue.isEmpty ? nil : newValue } }
+    var fitText: String { get { fit ?? "" } set { fit = newValue.isEmpty ? nil : newValue } }
+    var purchaseDraft: WardrobePurchaseDraft { get { purchase ?? WardrobePurchaseDraft() } set { purchase = newValue.isEmpty ? nil : newValue } }
 
     init(_ garment: WardrobeGarment? = nil) {
         guard let garment else { return }
@@ -21,6 +64,8 @@ struct WardrobeGarmentDraft: Codable, Equatable {
         warmth = garment.warmth ?? "unknown"; seasons = (garment.seasons ?? []).joined(separator: ", ")
         formality = garment.formality ?? ""; material = garment.material ?? ""; brand = garment.brand ?? ""
         notes = garment.notes ?? ""; favourite = garment.favourite ?? false
+        pattern = garment.pattern; style = garment.style; fit = garment.fit
+        purchase = garment.purchase.map { WardrobePurchaseDraft($0) }
     }
 
     init(createFields fields: [String: Any]) throws {
@@ -35,12 +80,23 @@ struct WardrobeGarmentDraft: Codable, Equatable {
         formality = try WardrobeDraftValidation.text(fields, "formality"); material = try WardrobeDraftValidation.text(fields, "material")
         brand = try WardrobeDraftValidation.text(fields, "brand"); notes = try WardrobeDraftValidation.text(fields, "notes")
         if let value = fields["favourite"] { guard let value = value as? Bool else { throw WardrobeWriteError("Invalid favourite value.") }; favourite = value }
+        pattern = try WardrobeDraftValidation.text(fields, "pattern"); style = try WardrobeDraftValidation.text(fields, "style")
+        fit = try WardrobeDraftValidation.text(fields, "fit")
+        if let raw = fields["purchase"], !(raw is NSNull) {
+            guard let raw = raw as? [String: Any] else { throw WardrobeWriteError("Invalid queued purchase value.") }
+            var value = WardrobePurchaseDraft()
+            value.date = try WardrobeDraftValidation.text(raw, "date"); value.amount = try WardrobeDraftValidation.text(raw, "amount")
+            value.currency = try WardrobeDraftValidation.text(raw, "currency"); value.evidence = try WardrobeDraftValidation.text(raw, "evidence")
+            value.source = try WardrobeDraftValidation.text(raw, "source", fallback: "manual")
+            purchase = value.isEmpty ? nil : value
+        }
     }
 
     func fields() throws -> [String: Any] {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw WardrobeWriteError("Give this garment a name.") }
-        let strings = ["name": name, "subtype": subtype, "formality": formality, "material": material, "brand": brand, "notes": notes]
+        let strings = ["name": name, "subtype": subtype, "formality": formality, "material": material, "brand": brand,
+                       "pattern": pattern ?? "", "style": style ?? "", "fit": fit ?? "", "notes": notes]
         try WardrobeDraftValidation.strings(strings)
         guard WardrobeVocabulary.categories.contains(category), WardrobeVocabulary.availability.contains(availability),
               WardrobeDraftValidation.warmths.contains(warmth) else { throw WardrobeWriteError("Choose valid garment details.") }
@@ -49,6 +105,7 @@ struct WardrobeGarmentDraft: Codable, Equatable {
         fields["colours"] = try WardrobeDraftValidation.list(colours)
         fields["seasons"] = try WardrobeDraftValidation.list(seasons)
         fields["favourite"] = favourite
+        fields["purchase"] = try purchase?.fields() ?? NSNull()
         return fields
     }
 }
@@ -113,6 +170,7 @@ struct WardrobeOutfitDraft: Codable, Equatable {
 enum WardrobeDraftValidation {
     static let roles = ["base", "mid", "bottom", "one_piece", "outer", "feet", "accessory", "other"]
     static let warmths = ["unknown", "light", "mid", "warm"]
+    static let purchaseSources = ["manual", "receipt", "connected"]
     static func items(_ items: [WardrobeSelection]) throws {
         guard (1...30).contains(items.count), Set(items.map(\.id)).count == items.count,
               items.allSatisfy({ UUID(uuidString: $0.id) != nil && $0.id != "00000000-0000-0000-0000-000000000000" && roles.contains($0.role) }) else {

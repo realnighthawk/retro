@@ -31,13 +31,13 @@ func (s *Service) registerOperations() {
 	register(s, "preferences_update", "Patch shared preferences using the current version; null clears only lists or default occasion.", true, updatePreferences)
 	register(s, "outfits_feedback_get", "Read explicit feedback for an outfit; version zero means no saved feedback.", false, readFeedback)
 	register(s, "outfits_feedback_update", "Patch feedback for a worn outfit with feedback and outfit version checks; null clears optional values without deleting history.", true, updateFeedback)
-	register(s, "garments_create", "Create an owned garment; a photograph is optional.", true, createGarment)
+	register(s, "garments_create", "Create an owned garment; a photograph is optional. Purchase amounts are integer minor units of an explicit currency and are never converted or inferred.", true, createGarment)
 	register(s, "garments_get", "Read a garment, including archived items and confirmed wear totals.", false, func(c context.Context, u *unit, i GetInput) (GarmentResult, error) {
 		g, e := u.getGarment(c, i.ID)
 		return GarmentResult{g}, e
 	})
-	register(s, "garments_list", "Filter and paginate inventory in stable ID order.", false, listGarments)
-	register(s, "garments_update", "Patch an active garment using the current version; null clears optional attributes.", true, updateGarment)
+	register(s, "garments_list", "Filter inventory by name/brand/notes text, category, availability, colour, season, favourite and confirmed wash method, then paginate with a cursor bound to that exact filter and sort. Sorts: id, name, recent (updated), added (created), each with a stable tie-break. total_matches counts the same filters in this read and is not an immutable snapshot.", false, listGarments)
+	register(s, "garments_update", "Patch an active garment using the current version; null clears optional attributes, including the purchase record. An amount requires its currency; amounts are never converted.", true, updateGarment)
 	register(s, "garments_archive", "Archive a garment without removing historical outfits.", true, func(c context.Context, u *unit, i EditInput) (GarmentResult, error) {
 		return lifecycleGarment(c, u, i, false)
 	})
@@ -73,8 +73,8 @@ func (s *Service) registerOperations() {
 	register(s, "pairings_restore", "Restore a pairing; unavailable or archived pieces still need review before planning.", true, func(c context.Context, u *unit, i EditInput) (PairingResult, error) {
 		return lifecyclePairing(c, u, i, true)
 	})
-	register(s, "wardrobe_suggest", "Rank distinct available combinations using saved preferences and version-matched rated wears through the requested date; enforce avoided colours/repeat rules without saving a plan or wear.", false, suggest)
-	register(s, "wardrobe_analyze", "Summarize actual outfit history and wardrobe usage in a date range.", false, analyze)
+	register(s, "wardrobe_suggest", "Rank distinct available combinations using saved preferences and version-matched rated wears through the requested date; enforce avoided colours/repeat rules without saving a plan or wear. An optional temperature_c is compared with the owner's cold/hot thresholds and sensitivity against each garment's recorded warmth tag only: unknown warmth stays neutral and is reported, and reported rain is disclosed as unassessable because no garment records water resistance.", false, suggest)
+	register(s, "wardrobe_analyze", "Summarize confirmed outfit history in an inclusive date range: counts, category usage, most/least worn, not-worn-in-range versus never-worn, colour distribution, weekly trends, explicit feedback and saved selections/plans. Only outfits whose current state is worn are worn; plans, selections, views and ratings are counted separately and never as wears. Ranked and never-worn lists are capped and report their full totals; cost per wear is per garment in its own currency and is absent without a recorded amount or a confirmed wear.", false, analyze)
 	register(s, "history_list", "Read append-only audit for wardrobe records, including daily automation and laundry loads.", false, history)
 	register(s, "media_prepare", "Reserve an immutable JPEG/PNG upload; stream bytes to upload_path separately.", true, func(c context.Context, u *unit, i MediaInput) (MediaResult, error) {
 		if s.photos == nil {

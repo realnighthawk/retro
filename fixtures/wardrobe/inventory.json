@@ -22,5 +22,6 @@
       "last_worn_on": "2026-10-07"
     }
   ],
-  "next_cursor": "opaque-cursor"
+  "next_cursor": "opaque-cursor",
+  "total_matches": 2
 }

@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
 )
 
 const garmentJSON = `g.attributes || jsonb_build_object('id',g.id::text,'version',g.version,'name',g.name,'category',g.category,'availability',g.availability,'archived_at',g.archived_at,'created_at',g.created_at,'updated_at',g.updated_at)`
@@ -82,7 +84,7 @@ func updateGarment(ctx context.Context, u *unit, in PatchInput) (GarmentResult, 
 		return result, e
 	}
 	data := before.GarmentData
-	if e = patchFields(&data, in.Patch, "name", "category", "availability", "subtype", "colours", "warmth", "seasons", "formality", "material", "brand", "notes", "favourite", "media_ids", "care", "laundry_reminder"); e != nil {
+	if e = patchFields(&data, in.Patch, "name", "category", "availability", "subtype", "colours", "warmth", "seasons", "formality", "material", "brand", "pattern", "style", "fit", "notes", "favourite", "media_ids", "purchase", "care", "laundry_reminder"); e != nil {
 		return result, e
 	}
 	if e = validateGarment(&data); e != nil {
@@ -129,16 +131,67 @@ func lifecycleGarment(ctx context.Context, u *unit, in EditInput, restore bool) 
 	result.Garment = g
 	return result, u.audit(ctx, "garment", g.ID, before, g)
 }
-func listGarments(ctx context.Context, u *unit, in GarmentListInput) (Page[Garment], error) {
-	result := Page[Garment]{Items: []Garment{}}
+
+// garmentFilters is the predicate shared by the page query and the match count. Every predicate is
+// optional; an absent filter is an empty string or a null pointer, never a wildcard value.
+const garmentFilters = `($1 OR g.archived_at IS NULL)
+	AND ($2='' OR g.category=$2)
+	AND ($3='' OR g.availability=$3)
+	AND ($4='' OR strpos(lower(g.name),lower($4))>0)
+	AND ($5='' OR strpos(lower(coalesce(g.attributes->>'brand','')),lower($5))>0)
+	AND ($6='' OR strpos(lower(coalesce(g.attributes->>'notes','')),lower($6))>0)
+	AND ($7='' OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(coalesce(g.attributes->'colours','[]'::jsonb)) c WHERE lower(c)=lower($7)))
+	AND ($8='' OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(coalesce(g.attributes->'seasons','[]'::jsonb)) s WHERE lower(s)=lower($8)))
+	AND ($9::boolean IS NULL OR coalesce(g.attributes->>'favourite','false')::boolean=$9)
+	AND ($10='' OR coalesce(g.attributes->'care'->>'wash_method','unknown')=$10)
+	AND ($11::boolean IS NULL OR coalesce(g.attributes->'care'->>'confirmed','false')::boolean=$11)`
+
+func garmentOrder(sort string) string {
+	switch sort {
+	case "name":
+		return "lower(g.name), g.id"
+	case "recent":
+		return "g.updated_at DESC, g.id DESC"
+	case "added":
+		return "g.created_at DESC, g.id DESC"
+	}
+	return "g.id"
+}
+
+// garmentKey is the sort value a cursor continues from. It is compared with the stored column so
+// paging never skips or repeats a tie: the ID breaks every tie in the same direction as the order.
+func garmentKey(sort string, g Garment) string {
+	switch sort {
+	case "name":
+		return g.Name
+	case "recent":
+		return g.UpdatedAt.UTC().Format(time.RFC3339Nano)
+	case "added":
+		return g.CreatedAt.UTC().Format(time.RFC3339Nano)
+	}
+	return ""
+}
+
+func listGarments(ctx context.Context, u *unit, in GarmentListInput) (GarmentPage, error) {
+	result := GarmentPage{Items: []Garment{}}
+	if in.Sort == "" {
+		in.Sort = "id"
+	}
+	if !oneOf(in.Sort, "id", "name", "recent", "added") {
+		return result, invalid("unsupported sort")
+	}
+	// The cursor scope covers the complete filter *and sort* request, so a changed query cannot
+	// continue an older page. Defaulting the sort first keeps an omitted sort identical to "id".
 	filters := in
 	filters.ListInput = ListInput{}
-	limit, after, e := page(in.ListInput, filters)
+	limit, after, key, e := page(in.ListInput, filters)
 	if e != nil {
 		return result, e
 	}
-	if len(in.Search) > 100 {
-		return result, invalid("search exceeds 100 bytes")
+	for _, text := range []string{in.Search, in.Brand, in.Notes, in.Colour, in.Season} {
+		if len(text) > 100 {
+			return result, invalid("search text exceeds 100 bytes")
+		}
 	}
 	if in.Category != "" && !oneOf(in.Category, "top", "bottom", "one_piece", "outerwear", "footwear", "accessory", "other") {
 		return result, invalid("unsupported category")
@@ -146,7 +199,42 @@ func listGarments(ctx context.Context, u *unit, in GarmentListInput) (Page[Garme
 	if in.Availability != "" && !oneOf(in.Availability, "ready", "needs_wash", "washing", "unavailable") {
 		return result, invalid("unsupported availability")
 	}
-	rows, e := u.tx.Query(ctx, `SELECT id::text FROM retro.garments WHERE ($1 OR archived_at IS NULL) AND ($2='' OR category=$2) AND ($3='' OR availability=$3) AND ($4='' OR strpos(lower(name),lower($4))>0) AND ($5='' OR id>NULLIF($5,'')::uuid) ORDER BY id LIMIT $6`, in.IncludeArchived, in.Category, in.Availability, in.Search, after, limit+1)
+	if in.WashMethod != "" && !oneOf(in.WashMethod, "unknown", "machine", "hand", "dry_clean", "do_not_wash") {
+		return result, invalid("unsupported wash method")
+	}
+	if after != "" && in.Sort != "id" && key == "" {
+		return result, invalid("invalid cursor")
+	}
+	base := []any{in.IncludeArchived, in.Category, in.Availability, in.Search, in.Brand, in.Notes, in.Colour, in.Season, in.Favourite, in.WashMethod, in.CareConfirmed}
+	if e = u.tx.QueryRow(ctx, `SELECT count(*) FROM retro.garments g WHERE `+garmentFilters, base...).Scan(&result.TotalMatches); e != nil {
+		return result, e
+	}
+	args := append([]any{}, base...)
+	query := `SELECT g.id::text FROM retro.garments g WHERE ` + garmentFilters
+	switch {
+	case after == "":
+	case in.Sort == "recent", in.Sort == "added":
+		// A timestamp cursor is compared as a timestamp so paging stays exact at sub-second precision.
+		stamp, parseErr := time.Parse(time.RFC3339Nano, key)
+		if parseErr != nil {
+			return result, invalid("invalid cursor")
+		}
+		column := "updated_at"
+		if in.Sort == "added" {
+			column = "created_at"
+		}
+		args = append(args, stamp, after)
+		query += fmt.Sprintf(` AND (g.%s, g.id) < ($%d, $%d::uuid)`, column, len(args)-1, len(args))
+	case in.Sort == "name":
+		args = append(args, key, after)
+		query += fmt.Sprintf(` AND (lower(g.name), g.id) > (lower($%d), $%d::uuid)`, len(args)-1, len(args))
+	default:
+		args = append(args, after)
+		query += fmt.Sprintf(` AND g.id > $%d::uuid`, len(args))
+	}
+	args = append(args, limit+1)
+	query += fmt.Sprintf(` ORDER BY %s LIMIT $%d`, garmentOrder(in.Sort), len(args))
+	rows, e := u.tx.Query(ctx, query, args...)
 	if e != nil {
 		return result, e
 	}
@@ -164,9 +252,9 @@ func listGarments(ctx context.Context, u *unit, in GarmentListInput) (Page[Garme
 	if e != nil {
 		return result, e
 	}
-	if len(ids) > limit {
+	hasMore := len(ids) > limit
+	if hasMore {
 		ids = ids[:limit]
-		result.NextCursor = cursor(filters, ids[len(ids)-1])
 	}
 	for _, v := range ids {
 		g, e := u.getGarment(ctx, v)
@@ -174,6 +262,10 @@ func listGarments(ctx context.Context, u *unit, in GarmentListInput) (Page[Garme
 			return result, e
 		}
 		result.Items = append(result.Items, g)
+	}
+	if hasMore {
+		last := result.Items[len(result.Items)-1]
+		result.NextCursor = cursor(filters, last.ID, garmentKey(in.Sort, last))
 	}
 	return result, nil
 }

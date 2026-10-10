@@ -104,7 +104,7 @@ func TestIntegrationTransactionsAndHistory(t *testing.T) {
 		}
 		garment = r.Garment
 	}
-	page := execute[engine.Page[engine.Garment]](t, s, "garments_list", map[string]any{"search": originalName})
+	page := execute[engine.GarmentPage](t, s, "garments_list", map[string]any{"search": originalName})
 	if len(page.Items) != 1 {
 		t.Fatal("duplicate inventory rows")
 	}
@@ -149,7 +149,7 @@ func TestIntegrationTransactionsAndHistory(t *testing.T) {
 	}
 	_ = execute[engine.OutfitResult](t, s, "outfits_restore", edit(void.ID, void.Version))
 	archived := execute[engine.GarmentResult](t, s, "garments_archive", edit(g.ID, g.Version)).Garment
-	page = execute[engine.Page[engine.Garment]](t, s, "garments_list", map[string]any{"search": renamedName})
+	page = execute[engine.GarmentPage](t, s, "garments_list", map[string]any{"search": renamedName})
 	if len(page.Items) != 0 {
 		t.Fatal("archive remained visible")
 	}

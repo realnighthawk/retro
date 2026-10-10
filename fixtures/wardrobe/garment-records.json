@@ -1,0 +1,36 @@
+{
+  "garment": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "version": 9007199254740993,
+    "name": "Field jacket",
+    "category": "outerwear",
+    "availability": "ready",
+    "subtype": "",
+    "colours": ["olive"],
+    "warmth": "mid",
+    "seasons": ["autumn"],
+    "formality": "casual",
+    "material": "cotton",
+    "brand": "Example",
+    "pattern": "herringbone",
+    "style": "field jacket",
+    "fit": "relaxed",
+    "notes": "",
+    "favourite": true,
+    "media_ids": [],
+    "purchase": {
+      "date": "2026-03-02",
+      "currency": "EUR",
+      "amount_minor": 19990,
+      "currency_exponent": 2,
+      "evidence": "Receipt 2026-03-02, total 199,90 EUR",
+      "source": "receipt"
+    },
+    "archived_at": null,
+    "created_at": "2026-03-02T10:00:00Z",
+    "updated_at": "2026-10-09T12:00:00Z",
+    "wear_days": 3,
+    "wear_events": 4,
+    "last_worn_on": "2026-10-07"
+  }
+}

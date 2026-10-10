@@ -12,6 +12,7 @@ struct WardrobeGarmentEditor: View {
     @State private var saved = false
     @State private var discarding = false
     @State private var assistance = false
+    @State private var receipt = false
     @State private var importImage: UIImage?
 
     init(store: WardrobeStore, garment: WardrobeGarment? = nil, resume: WardrobeSavedDraft? = nil) {
@@ -48,7 +49,23 @@ struct WardrobeGarmentEditor: View {
                     TextField("Formality", text: $draft.formality)
                     TextField("Material", text: $draft.material)
                     TextField("Brand", text: $draft.brand)
+                    TextField("Pattern", text: $draft.patternText)
+                    TextField("Style", text: $draft.styleText)
+                    TextField("Fit you chose", text: $draft.fitText)
                     TextField("Notes", text: $draft.notes, axis: .vertical).lineLimit(3...8)
+                }
+                Section("Purchase · optional") {
+                    TextField("Date, for example 2026-03-02", text: $draft.purchaseDraft.date)
+                    HStack {
+                        TextField("Amount", text: $draft.purchaseDraft.amount).keyboardType(.decimalPad)
+                        TextField("Currency", text: $draft.purchaseDraft.currency).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                    }
+                    Button("Read a receipt or price label") { receipt = true }.frame(minHeight: 44)
+                    choice("Recorded from", $draft.purchaseDraft.source, WardrobeDraftValidation.purchaseSources)
+                    if draft.purchaseDraft.source != "manual" {
+                        TextField("Evidence, for example the receipt total", text: $draft.purchaseDraft.evidence, axis: .vertical).lineLimit(2...5)
+                    }
+                    Text("Money is kept as an exact amount in one currency; Retro never converts or totals across currencies. Leave every field empty for an unknown price. Fit, pattern and style are your own description, not read from the garment.").font(.footnote)
                 }
                 if let problem { Section { Text(problem).foregroundStyle(Tok.stamp).accessibilityAddTraits(.updatesFrequently) } }
                 Section { Text("Save stores this request on this phone before sending it. Check Pending saves for acknowledgement.").font(.footnote) }
@@ -61,6 +78,7 @@ struct WardrobeGarmentEditor: View {
         }
         .interactiveDismissDisabled(draft != original && !saved)
         .sheet(isPresented: $assistance) { GarmentAssistanceView(store: store, draft: $draft) }
+        .sheet(isPresented: $receipt) { WardrobeReceiptView(store: store, draft: $draft) }
         .task(id: entry.importPhoto?.id) {
             guard entry.importPhoto != nil else { return }
             do { let bytes = try await store.drafts.importBytes(entry.id); if store.isCurrentOwner, !Task.isCancelled { importImage = PhotoPreparation.display(bytes) } }

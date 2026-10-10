@@ -3,7 +3,9 @@ package engine_test
 import (
 	"github.com/google/uuid"
 	"github.com/nighthawklabs/retro/engine/internal/engine"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestIntegrationRankingUsesOnlyAsOfVersionMatchedWearsAndDoesNotWritePlans(t *testing.T) {
@@ -74,4 +76,44 @@ func TestIntegrationRankingUsesOnlyAsOfVersionMatchedWearsAndDoesNotWritePlans(t
 	patch["patch"] = map[string]any{"default_occasion": "formal"}
 	_ = execute[engine.PreferencesResult](t, s, "preferences_update", patch)
 	errorCode(t, s, "wardrobe_suggest", query, "conflict")
+}
+
+// N05: a supplied temperature is used against the owner's thresholds, and its absence is disclosed
+// rather than assumed. Rain is disclosed as unassessable because no garment records water resistance.
+func TestIntegrationSuggestionTemperatureWarnings(t *testing.T) {
+	s := integrationService(t, nil)
+	body := map[string]any{"idempotency_key": uuid.NewString(), "name": "Warm coat " + uuid.NewString(), "category": "outerwear", "warmth": "warm"}
+	execute[engine.GarmentResult](t, s, "garments_create", body)
+	day := time.Now().UTC().Format("2006-01-02")
+	without := execute[engine.Suggestions](t, s, "wardrobe_suggest", map[string]any{"day": day})
+	found := false
+	for _, warning := range without.Warnings {
+		if strings.Contains(warning, "No temperature was supplied") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("an absent temperature must be disclosed: %v", without.Warnings)
+	}
+	rain := true
+	with := execute[engine.Suggestions](t, s, "wardrobe_suggest", map[string]any{"day": day, "temperature_c": 4, "precipitation": rain})
+	for _, warning := range with.Warnings {
+		if strings.Contains(warning, "No temperature was supplied") {
+			t.Fatalf("a supplied temperature must not be reported as absent: %v", with.Warnings)
+		}
+	}
+	rainDisclosed, warmthDisclosed := false, false
+	for _, warning := range with.Warnings {
+		if strings.Contains(warning, "no garment records water resistance") {
+			rainDisclosed = true
+		}
+		if strings.Contains(warning, "have no warmth tag") {
+			warmthDisclosed = true
+		}
+	}
+	if !rainDisclosed || !warmthDisclosed {
+		t.Fatalf("coverage of rain and untagged warmth must be disclosed: %v", with.Warnings)
+	}
+	errorCode(t, s, "wardrobe_suggest", map[string]any{"day": day, "temperature_c": 100}, "invalid_input")
+	errorCode(t, s, "wardrobe_suggest", map[string]any{"day": day, "temperature_c": -100}, "invalid_input")
 }

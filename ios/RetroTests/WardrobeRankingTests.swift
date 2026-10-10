@@ -99,4 +99,22 @@ private final class RankingProtocol: URLProtocol {
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
     override func stopLoading() {}
+
+    func testTemperatureIsOptionalAndOnlySentWhenStated() throws {
+        func fields(_ query: WardrobeSuggestQuery) throws -> [String: Any] {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(query)) as? [String: Any])
+        }
+        let plain = try fields(WardrobeSuggestQuery(day: "2026-10-09"))
+        XCTAssertNil(plain["temperature_c"], "No temperature is stated, so ranking is not given one")
+        XCTAssertNil(plain["precipitation"])
+        var cold = WardrobeSuggestQuery(day: "2026-10-09")
+        cold.temperatureC = 4; cold.precipitation = true
+        let sent = try fields(cold)
+        XCTAssertEqual(sent["temperature_c"] as? Int, 4)
+        XCTAssertEqual(sent["precipitation"] as? Bool, true)
+        // A cleared field removes the value rather than sending a zero.
+        cold.temperatureC = nil; cold.precipitation = nil
+        let cleared = try fields(cold)
+        XCTAssertNil(cleared["temperature_c"]); XCTAssertNil(cleared["precipitation"])
+    }
 }

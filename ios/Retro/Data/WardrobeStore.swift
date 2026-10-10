@@ -133,7 +133,7 @@ final class WardrobeStore {
         inventory.problem = nil
         inventory.loading = true
         defer { if revision == inventoryRevision { inventory.loading = false } }
-        if debounce, !query.search.isEmpty {
+        if debounce, query.hasTextFilters {
             do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
         }
         let result: Api<WardrobePage<WardrobeGarment>> = await engine.call("garments_list", query)
@@ -155,10 +155,83 @@ final class WardrobeStore {
         case .ok(let page):
             let prior = inventory.value?.items ?? []
             let ids = Set(prior.map(\.id))
-            let merged = WardrobePage(items: prior + page.items.filter { !ids.contains($0.id) }, nextCursor: page.nextCursor)
+            let merged = WardrobePage(items: prior + page.items.filter { !ids.contains($0.id) }, nextCursor: page.nextCursor,
+                                      totalMatches: page.totalMatches ?? inventory.value?.totalMatches)
             inventory = received(.ok(merged), retaining: inventory, key: key("inventory", baseQuery))
         default: inventory.problem = result.problem
         }
+    }
+
+    // P4.6: a batch is only a series of ordinary frozen writes. Each item keeps the queue's own identity,
+    // version check and rejection handling, so nothing here can bypass one-pending-write-per-entity.
+    func runBatch(_ plan: WardrobeBatchPlan) -> (queued: [String], refused: [String]) {
+        var queued: [String] = [], refused: [String] = []
+        for item in plan.items {
+            do {
+                try writes.enqueue(operation: plan.action.operation, entity: item.id, title: "\(plan.action.title) · \(item.name)", fields: plan.fields(item))
+                queued.append(item.id)
+            } catch { refused.append("\(item.name): \(error.localizedDescription)") }
+        }
+        if !queued.isEmpty { Task { await sync() } }
+        return (queued, refused)
+    }
+
+    // P4.4: duplicate comparison walks the complete active inventory instead of one cached page, then
+    // compares as many photos as the bounded budget allows and reports everything it did not check.
+    func duplicateScan(source: Data, budget: Int = WardrobeDuplicates.photoBudget) async -> WardrobeDuplicateScan? {
+        guard engine.isCurrentOwner else { return nil }
+        var candidates: [WardrobeDuplicateCandidate] = []
+        var active = 0
+        var cursor: String?
+        var total: Int64?
+        var complete = false
+        var readProblem: String?
+        for _ in 0..<12 {
+            var query = WardrobeInventoryQuery()
+            query.limit = WardrobeDuplicates.pageLimit
+            query.cursor = cursor
+            let result: Api<WardrobePage<WardrobeGarment>> = await engine.call("garments_list", query)
+            guard engine.isCurrentOwner, !Task.isCancelled else { return nil }
+            guard case .ok(let page) = result else {
+                // A later page failing still reports the partial walk it did read.
+                if active == 0 { readProblem = result.problem ?? "The inventory could not be read." }
+                complete = false
+                break
+            }
+            active += page.items.count
+            total = page.totalMatches ?? total
+            candidates += page.items.compactMap { garment in
+                guard let media = garment.mediaIDs?.first else { return nil }
+                return WardrobeDuplicateCandidate(id: garment.id, name: garment.name, version: garment.version, mediaID: media)
+            }
+            cursor = page.nextCursor
+            if cursor == nil {
+                // Only the engine's own match count can show that every page was read.
+                complete = total.map { Int64(active) >= $0 } ?? false
+                break
+            }
+            if active >= WardrobeDuplicates.indexLimit { break }
+        }
+        let plan = WardrobeDuplicates.plan(candidates, budget: budget, cached: { photos.cachedThumbnail($0) })
+        var compared = plan.ready
+        var unchecked = plan.overBudget
+        var processed = 0
+        for candidate in plan.fetch {
+            guard engine.isCurrentOwner, !Task.isCancelled else { break }
+            if case .ok(let data) = await photos.image(candidate.mediaID, variant: "thumbnail") {
+                compared.append(WardrobeDuplicatePhoto(id: candidate.id, name: candidate.name, version: candidate.version, mediaID: candidate.mediaID, bytes: data))
+            } else {
+                unchecked += 1
+            }
+            processed += 1
+        }
+        guard engine.isCurrentOwner, !Task.isCancelled else { return nil }
+        unchecked += plan.fetch.count - processed
+        let hints = (try? await WardrobeDuplicates.compare(source, photos: compared)) ?? []
+        guard engine.isCurrentOwner, !Task.isCancelled else { return nil }
+        return WardrobeDuplicateScan(hints: hints, sourceChecksum: WardrobeDuplicates.checksum(source), revision: WardrobeDuplicates.revision,
+                                     activeGarments: active, indexedGarments: active, totalMatches: total, complete: complete,
+                                     compared: compared.count, missingPhotos: active - candidates.count, unchecked: unchecked, readProblem: readProblem)
     }
 
     func refreshHistory(_ query: WardrobeHistoryQuery) async {

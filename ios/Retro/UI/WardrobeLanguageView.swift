@@ -30,14 +30,29 @@ struct WardrobeLanguageView: View {
     @State private var occasion: String
     @State private var warmth: String
     @State private var nameQuery = ""
+    @State private var brandQuery = ""
+    @State private var colour = ""
+    @State private var season = ""
+    @State private var notesQuery = ""
+    @State private var washMethod = ""
+    @State private var favourite = ""
+    @State private var careReviewed = ""
     @State private var category = ""
     @State private var availability = ""
     @State private var archived = false
     @State private var acceptedLimitations = false
     @State private var busy = false
+    @State private var connected = false
+    @State private var route: WardrobeLanguageRoute?
     @State private var problem: String?
     @State private var task: Task<Void, Never>?
     @State private var timeout: Task<Void, Never>?
+    // Connected help is off by default and only this reading is delegated: the owner's typed request,
+    // never a raw capture, and the answer is held to the same validator as the on-device one.
+    private var agentExecutor: WardrobeLanguageExecutor? {
+        guard connected else { return nil }
+        return WardrobeAgentLanguageExecutor(enabled: { true }, delegate: { query in try await store.assistant.delegate(query, connected: true) })
+    }
     init(store: WardrobeStore, context: WardrobeLanguageContext, onApply: @escaping (WardrobeLanguageDraft, [WardrobeSelection], [WardrobeSelection], [String]) throws -> Void) {
         self.store = store; self.context = context; self.onApply = onApply
         _required = State(initialValue: context.required); _excluded = State(initialValue: context.excluded)
@@ -52,8 +67,14 @@ struct WardrobeLanguageView: View {
                     TextField(context.mode == .outfit ? "Outfit request" : "Wardrobe search request", text: $text, axis: .vertical).lineLimit(3...6)
                     WardrobeVoiceInput(store: store, text: $text, byteLimit: 2000)
                     Text("Interpretation runs on this device. Review the supported fields and choose real garments before applying them.").font(.footnote)
-                    if let reason = GarmentAssistance.unavailableReason { Text(reason).font(.footnote) }
-                    Button("Interpret request", action: interpret).frame(minHeight: 44).disabled(busy || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || GarmentAssistance.unavailableReason != nil)
+                    if let reason = GarmentAssistance.unavailableReason {
+                        Text(reason).font(.footnote)
+                        Toggle("Read my request with the connected agent instead", isOn: $connected)
+                        Text("Your typed request is sent to your connected agent and its answer is checked here before anything is offered. It is never a wardrobe fact, and raw photos or recordings are never sent.").font(.footnote)
+                    }
+                    if let route { Text(route.title).font(.footnote).foregroundStyle(Tok.faint) }
+                    Button("Interpret request", action: interpret).frame(minHeight: 44)
+                        .disabled(busy || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (GarmentAssistance.unavailableReason != nil && !connected))
                     if busy { ProgressView("Interpreting on this device"); Button("Cancel interpretation") { invalidate() }.frame(minHeight: 44) }
                     if let problem { Text(problem).foregroundStyle(Tok.stamp) }
                 }
@@ -102,22 +123,30 @@ struct WardrobeLanguageView: View {
     }
     private var searchFields: some View {
         Section("Review search filters") {
-            TextField("Name contains", text: $nameQuery)
-            Picker("Category", selection: $category) { Text("All categories").tag(""); ForEach(WardrobeVocabulary.categories, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) } }
-            Picker("Availability", selection: $availability) { Text("Any availability").tag(""); ForEach(WardrobeVocabulary.availability, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) } }
-            Toggle("Include archived", isOn: $archived)
-            Text("Search checks names and these filters. It does not search colour, material, warmth, subtype, similarity or wear dates.").font(.footnote)
+                TextField("Name contains", text: $nameQuery)
+                TextField("Brand contains", text: $brandQuery)
+                TextField("Colour, exact match", text: $colour)
+                TextField("Season, exact match", text: $season)
+                TextField("Notes contain", text: $notesQuery)
+                Picker("Category", selection: $category) { Text("All categories").tag(""); ForEach(WardrobeVocabulary.categories, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) } }
+                Picker("Availability", selection: $availability) { Text("Any availability").tag(""); ForEach(WardrobeVocabulary.availability, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) } }
+                Picker("Wash method", selection: $washMethod) { Text("Any wash method").tag(""); ForEach(WardrobeInventoryQuery.washMethods, id: \.self) { Text(WardrobeVocabulary.title($0)).tag($0) } }
+                Picker("Favourite", selection: $favourite) { Text("Any").tag(""); Text("Favourites only").tag("yes"); Text("Not favourite").tag("no") }
+                Picker("Care", selection: $careReviewed) { Text("Any care state").tag(""); Text("Care reviewed").tag("yes"); Text("Care needs review").tag("no") }
+                Toggle("Include archived", isOn: $archived)
+            Text("Colour and season must match a whole recorded value. Search still cannot check material, warmth, subtype, similarity or wear dates; ask for those as separate conditions instead.").font(.footnote)
         }
     }
     private func invalidate() {
-        task?.cancel(); timeout?.cancel(); parsed = nil; references = []; resolved = [:]; omitted = []
+        task?.cancel(); timeout?.cancel(); parsed = nil; references = []; resolved = [:]; omitted = []; route = nil
         required = context.required; excluded = context.excluded; acceptedLimitations = false; busy = false
     }
     private func interpret() {
         invalidate(); busy = true; problem = nil
         let input = text
+        // A connected reading uses the delegation's own 90-second budget; on-device stays at 20.
         timeout = Task {
-            do { try await Task.sleep(for: .seconds(20)) } catch { return }
+            do { try await Task.sleep(for: .seconds(connected ? 90 : 20)) } catch { return }
             guard busy, store.isCurrentOwner else { return }
             task?.cancel(); busy = false; parsed = nil
             problem = "Interpretation took too long. Try a shorter request or use the manual controls."
@@ -125,10 +154,15 @@ struct WardrobeLanguageView: View {
         task = Task {
             defer { if !Task.isCancelled { timeout?.cancel() } }
             do {
-                let value = try await WardrobeLanguageAssistance.interpret(input, mode: context.mode)
+                let answer = try await WardrobeLanguageAssistance.interpret(input, mode: context.mode, agent: agentExecutor)
                 guard store.isCurrentOwner, !Task.isCancelled, input == text else { return }
+                route = answer.route
+                let value = answer.draft
                 parsed = value; occasion = value.occasion ?? context.suggestion?.occasion ?? ""; warmth = value.warmth ?? context.suggestion?.warmth ?? ""
                 nameQuery = value.nameQuery ?? ""; category = value.category ?? ""; availability = value.availability ?? ""; archived = value.includeArchived ?? false
+                brandQuery = value.brandQuery ?? ""; colour = value.colour ?? ""; season = value.season ?? ""; notesQuery = value.notesQuery ?? ""
+                washMethod = value.washMethod ?? ""; favourite = value.favourite.map { $0 ? "yes" : "no" } ?? ""
+                careReviewed = value.careConfirmed.map { $0 ? "yes" : "no" } ?? ""
                 references = value.requiredGarments.map { WardrobeLanguageReference(hint: $0, excluded: false) } + value.excludedGarments.map { WardrobeLanguageReference(hint: $0, excluded: true) }
                 busy = false
             } catch { if store.isCurrentOwner, !Task.isCancelled { problem = error.localizedDescription; busy = false } }
@@ -140,7 +174,14 @@ struct WardrobeLanguageView: View {
             let includes = required + references.filter { !$0.excluded && !omitted.contains($0.id) }.compactMap { resolved[$0.id] }
             let excludes = excluded + references.filter { $0.excluded && !omitted.contains($0.id) }.compactMap { resolved[$0.id] }
             if context.mode == .outfit { value.occasion = occasion; value.warmth = warmth; _ = try value.outfitQuery(day: context.suggestion?.day ?? "", required: includes, excluded: excludes) }
-            else { value.nameQuery = nameQuery; value.category = category.isEmpty ? nil : category; value.availability = availability.isEmpty ? nil : availability; value.includeArchived = archived; _ = try value.searchQuery() }
+            else {
+                value.nameQuery = nameQuery; value.category = category.isEmpty ? nil : category; value.availability = availability.isEmpty ? nil : availability
+                value.includeArchived = archived; value.brandQuery = brandQuery; value.colour = colour; value.season = season; value.notesQuery = notesQuery
+                value.washMethod = washMethod.isEmpty ? nil : washMethod
+                value.favourite = favourite == "yes" ? true : favourite == "no" ? false : nil
+                value.careConfirmed = careReviewed == "yes" ? true : careReviewed == "no" ? false : nil
+                _ = try value.searchQuery()
+            }
             try onApply(value, includes, excludes, unhandled)
             dismiss()
         } catch { problem = error.localizedDescription }
